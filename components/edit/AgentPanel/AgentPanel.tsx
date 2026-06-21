@@ -294,33 +294,35 @@ export function AgentPanel({ scene }: { scene?: { id: string; title: string } })
                 className="block w-full resize-none bg-transparent px-3 pb-1 pt-2 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted-foreground/50"
               />
 
-              <div className="flex items-center gap-1 px-2 pb-2 pt-0.5">
-                {/* Voice input — dictates into the composer. Self-gates on ASR
-                    availability (hidden/disabled when no ASR). */}
-                <VoiceInputButton />
-                {/* Send while idle; Stop while a response streams. Stop calls the
-                    thread runtime's cancelRun → our onCancel aborts the fetch. */}
-                <ThreadPrimitive.If running={false}>
-                  <ComposerPrimitive.Send className="ml-auto grid size-[30px] shrink-0 place-items-center rounded-lg bg-primary text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground/50">
-                    <ArrowUp className="size-4" />
-                  </ComposerPrimitive.Send>
-                </ThreadPrimitive.If>
-                <ThreadPrimitive.If running>
-                  <button
-                    type="button"
-                    aria-label={t('edit.agent.stop')}
-                    onClick={() => {
-                      try {
-                        runtime.thread.cancelRun();
-                      } catch {
-                        /* no run to cancel */
-                      }
-                    }}
-                    className="ml-auto grid size-[30px] shrink-0 place-items-center rounded-lg bg-primary text-white transition-colors hover:opacity-90"
-                  >
-                    <Square className="size-3 fill-current" />
-                  </button>
-                </ThreadPrimitive.If>
+              <div className="flex items-center px-2 pb-2 pt-0.5">
+                {/* Voice + send cluster on the right; the mic sits immediately
+                    left of the send/stop button. Voice self-gates on ASR. */}
+                <div className="ml-auto flex items-center gap-1">
+                  <VoiceInputButton />
+                  {/* Send while idle; Stop while a response streams. Stop calls the
+                      thread runtime's cancelRun → our onCancel aborts the fetch. */}
+                  <ThreadPrimitive.If running={false}>
+                    <ComposerPrimitive.Send className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-primary text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground/50">
+                      <ArrowUp className="size-4" />
+                    </ComposerPrimitive.Send>
+                  </ThreadPrimitive.If>
+                  <ThreadPrimitive.If running>
+                    <button
+                      type="button"
+                      aria-label={t('edit.agent.stop')}
+                      onClick={() => {
+                        try {
+                          runtime.thread.cancelRun();
+                        } catch {
+                          /* no run to cancel */
+                        }
+                      }}
+                      className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-primary text-white transition-colors hover:opacity-90"
+                    >
+                      <Square className="size-3 fill-current" />
+                    </button>
+                  </ThreadPrimitive.If>
+                </div>
               </div>
             </ComposerPrimitive.Root>
           </div>
