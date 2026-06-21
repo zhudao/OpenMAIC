@@ -15,7 +15,7 @@ import { makeRegenerateSceneTool } from './regenerate-scene';
  * All three tools share the same deps shape (`RegenerateActionsDeps`); the
  * read tool only uses `getSceneContext`.
  */
-export type ToolsetDeps = RegenerateActionsDeps;
+export type ToolsetDeps = RegenerateActionsDeps & { activeSceneId?: string };
 
 /**
  * Build the v0 toolset:

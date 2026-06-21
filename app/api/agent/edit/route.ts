@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
   const tools = buildToolset({
     aiCall,
     getSceneContext: (sceneId) => sceneContextMap[sceneId],
+    activeSceneId: body.scene?.id,
   });
 
   const abortController = new AbortController();

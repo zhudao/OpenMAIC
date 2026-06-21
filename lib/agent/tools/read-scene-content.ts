@@ -21,6 +21,47 @@ import type { SceneContext } from './regenerate-scene-actions';
 export interface ReadSceneContentDeps {
   /** Returns the trusted scene/stage context for a scene id (client-sourced). */
   getSceneContext: (sceneId: string) => SceneContext | undefined;
+  /** The active scene id, used when the model omits sceneId. */
+  activeSceneId?: string;
+}
+
+// ── Content projection (model-visible text) ──────────────────────────────────
+// The model only sees `content[].text`, NOT `details`. Serialize a compact,
+// human-readable projection of the actual content so it can reason about what
+// is on the slide.
+
+const PROJECTION_CAP = 2000;
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+function projectContent(content: SceneContext['content']): string {
+  const c = content as { type?: string; canvas?: { elements?: unknown[] } } | undefined;
+  let projection: string;
+  if (c?.type === 'slide') {
+    const elements = Array.isArray(c.canvas?.elements) ? c.canvas!.elements : [];
+    projection = elements
+      .map((el) => {
+        const e = el as { type?: string; content?: unknown };
+        const type = e.type ?? 'element';
+        const text = typeof e.content === 'string' ? truncate(stripHtml(e.content), 80) : '';
+        return text ? `- ${type}: ${text}` : `- ${type}`;
+      })
+      .join('\n');
+  } else {
+    projection = JSON.stringify(content ?? {});
+  }
+  return projection.length > PROJECTION_CAP
+    ? `${projection.slice(0, PROJECTION_CAP)}…(truncated)`
+    : projection;
 }
 
 // ── Params ───────────────────────────────────────────────────────────────────
@@ -64,7 +105,7 @@ export function makeReadSceneContentTool(
     parameters: ReadSceneContentParams,
 
     execute: async (_toolCallId, params) => {
-      const sceneId = params.sceneId ?? '';
+      const sceneId = params.sceneId || deps.activeSceneId || '';
       const ctx = deps.getSceneContext(sceneId);
       if (!ctx) {
         return {
@@ -87,6 +128,7 @@ export function makeReadSceneContentTool(
 
       const { outline, content } = ctx;
       const keyPoints = (outline.keyPoints ?? []).join('; ');
+      const projection = projectContent(content);
       return {
         content: [
           {
@@ -94,8 +136,8 @@ export function makeReadSceneContentTool(
             text:
               `Scene "${outline.title}" (type: ${outline.type}). ` +
               `Description: ${outline.description || '(none)'}. ` +
-              `Key points: ${keyPoints || '(none)'}. ` +
-              `Full content is available in the tool result for your reasoning.`,
+              `Key points: ${keyPoints || '(none)'}.\n` +
+              `Slide content:\n${projection}`,
           },
         ],
         details: {

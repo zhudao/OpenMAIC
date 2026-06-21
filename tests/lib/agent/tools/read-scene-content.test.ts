@@ -58,6 +58,28 @@ describe('read_scene_content tool', () => {
     expect(JSON.stringify(res.details.content)).toContain('READ-CONTENT-SENTINEL');
   });
 
+  it('puts a content projection (element text snippet) in the model-visible text', async () => {
+    const tool = makeReadSceneContentTool({
+      getSceneContext: (id) => (id === 's1' ? ctxFor('s1') : undefined),
+    });
+    const res = await tool.execute('call-1', { sceneId: 's1' });
+
+    // The model only sees content[].text, not details — the projection must be there.
+    const text = res.content.map((p) => (p as { text?: string }).text ?? '').join('\n');
+    expect(text).toContain('READ-CONTENT-SENTINEL');
+  });
+
+  it('defaults to the active scene when sceneId is omitted', async () => {
+    const tool = makeReadSceneContentTool({
+      getSceneContext: (id) => (id === 's1' ? ctxFor('s1') : undefined),
+      activeSceneId: 's1',
+    });
+    const res = await tool.execute('call-1', {});
+
+    expect((res as { isError?: boolean }).isError).toBeFalsy();
+    expect(res.details.sceneId).toBe('s1');
+  });
+
   it('errors when the scene context is missing', async () => {
     const tool = makeReadSceneContentTool({ getSceneContext: () => undefined });
     const res = await tool.execute('call-1', { sceneId: 'nope' });
