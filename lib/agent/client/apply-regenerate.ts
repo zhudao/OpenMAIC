@@ -47,6 +47,12 @@ export function toRuntimeSlideContent(
     canvas: {
       ...base,
       elements: gen.elements,
+      // Replacing ALL elements with freshly-minted ids strands any persisted
+      // animations on `base` — they reference element ids that no longer exist
+      // (mirrors how slide edit ops drop animations whose elId is deleted).
+      // Every new element has a brand-new id, so nothing survives a filter;
+      // clear the array.
+      animations: [],
       // Only override background when defined — a regen that omits background
       // must not wipe the scene's existing background.
       ...(gen.background !== undefined ? { background: gen.background } : {}),

@@ -20,6 +20,7 @@ function slideScene(): Pick<Scene, 'content' | 'actions'> {
         viewportRatio: 0.5625,
         theme: { fontName: 'KeepMe' },
         elements: [{ id: 'e_old' }],
+        animations: [{ id: 'anim_old', elId: 'e_old', type: 'in', effect: 'fadeIn' }],
       },
     } as unknown as SceneContent,
     actions: [{ type: 'speech', id: 'a_old' } as never],
@@ -59,6 +60,20 @@ describe('toRuntimeSlideContent', () => {
     expect(rt.canvas.schemaVersion).toBeUndefined();
   });
 
+  it('clears stale animations referencing the replaced (now-gone) element ids', () => {
+    // The existing canvas has animations bound to old element ids. Every regen
+    // element gets a brand-new id, so preserving the animations would strand
+    // them — they must be cleared.
+    const existingCanvas = {
+      id: 'cv',
+      animations: [{ id: 'anim_old', elId: 'e_old', type: 'in', effect: 'fadeIn' }],
+    };
+    const rt = toRuntimeSlideContent(GEN, existingCanvas) as unknown as {
+      canvas: Record<string, unknown>;
+    };
+    expect(rt.canvas.animations).toEqual([]);
+  });
+
   it('keeps the existing background when the gen omits it (no wipe)', () => {
     const genNoBg: GeneratedSlideContent = {
       elements: [{ id: 'e_new', type: 'text', left: 0, top: 0, width: 1, height: 1 } as never],
@@ -88,11 +103,18 @@ describe('planRegenerateApply', () => {
     ).toBe('e_old');
     // patch applies the new content + actions.
     const patch = plan.patch as {
-      content: { canvas: { elements: { id: string }[] } };
+      content: { canvas: { elements: { id: string }[]; animations: unknown[] } };
       actions: { id: string }[];
     };
     expect(patch.content.canvas.elements[0].id).toBe('e_new');
     expect(patch.actions[0].id).toBe('a_new');
+    // Stale animations bound to the replaced element ids are cleared.
+    expect(patch.content.canvas.animations).toEqual([]);
+    // ...while the snapshot retains the original animations for restore.
+    expect(
+      (plan.snapshot?.content as { canvas: { animations: { id: string }[] } }).canvas.animations[0]
+        .id,
+    ).toBe('anim_old');
   });
 
   it('regenerate_scene with empty actions applies content but not actions (no wipe)', () => {
