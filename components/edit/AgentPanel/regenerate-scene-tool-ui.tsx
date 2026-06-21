@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils/cn';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useStageStore } from '@/lib/store/stage';
 import { useRegenSnapshots } from '@/lib/agent/client/regen-snapshots';
+import { applyScenePatchInSync } from '@/lib/agent/client/apply-slide-content';
 
 interface RegenerateSceneResult {
   content?: { type: string; text?: string }[];
@@ -52,7 +53,7 @@ function RestoreButton({ toolCallId }: { toolCallId: string }) {
       onClick={() =>
         useRegenSnapshots
           .getState()
-          .restore(toolCallId, (id, patch) => useStageStore.getState().updateScene(id, patch))
+          .restore(toolCallId, (id, patch) => applyScenePatchInSync(id, patch))
       }
       className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
     >

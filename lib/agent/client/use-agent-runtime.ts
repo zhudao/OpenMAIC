@@ -23,12 +23,11 @@ import {
 } from '@assistant-ui/react';
 import type { AgentEvent } from '@earendil-works/pi-agent-core';
 import { useStageStore } from '@/lib/store/stage';
-import { useSlideEditSession } from '@/components/edit/surfaces/slide/slide-edit-session';
-import type { SlideContent } from '@/lib/types/stage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import type { SceneContextMap } from '@/app/api/agent/edit/route';
 import { mergeAssistantParts, type PiPart } from './merge-assistant-parts';
 import { planRegenerateApply, type RegenerateDetails } from './apply-regenerate';
+import { applyScenePatchInSync } from './apply-slide-content';
 import { useRegenSnapshots } from './regen-snapshots';
 export type { AssistantPart, PiPart } from './merge-assistant-parts';
 
@@ -143,13 +142,10 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
         const { snapshot, patch } = planRegenerateApply(details, scene, e.toolName);
         if (snapshot) useRegenSnapshots.getState().setSnapshot(e.toolCallId, snapshot);
         if (patch && details.sceneId) {
-          useStageStore.getState().updateScene(details.sceneId, patch);
-          // Keep the OPEN slide edit session in lockstep — else the canvas keeps
-          // rendering its stale history.present and the next edit clobbers the regen.
-          const editSession = useSlideEditSession.getState();
-          if (patch.content && editSession.sceneId === details.sceneId) {
-            editSession.seed(details.sceneId, patch.content as SlideContent);
-          }
+          // Apply to the stage store and keep the OPEN slide edit session in
+          // lockstep — else the canvas keeps rendering its stale history.present
+          // and the next edit clobbers the regen.
+          applyScenePatchInSync(details.sceneId, patch);
         }
         refresh();
         break;
