@@ -118,6 +118,20 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
     setMessages(deserializeThread(saved?.messages));
   }, [stageId]);
 
+  // Persist the thread whenever it settles (after a turn completes, not mid-run),
+  // keyed by the current course. An effect — NOT an inline read after
+  // setMessages — because a state updater does not run synchronously, so reading
+  // "final" messages right after setMessages would serialize a stale/empty list.
+  useEffect(() => {
+    if (isRunning || messages.length === 0) return;
+    const sid = useStageStore.getState().stage?.id;
+    if (sid) {
+      useAgentThreadStore
+        .getState()
+        .save(sid, { messages: serializeThread(messages), updatedAt: Date.now() });
+    }
+  }, [messages, isRunning]);
+
   const clearThread = useCallback(() => {
     setMessages([]);
     const sid = useStageStore.getState().stage?.id;
@@ -352,21 +366,13 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
           abortRef.current = null;
           if (phaseRef.current === 'running') phaseRef.current = 'complete';
           setIsRunning(false);
-          let finalMessages: ThreadMessageLike[] = [];
           setMessages((prev) => {
             const next = prev.slice();
             next[next.length - 1] = buildAssistant(assistantId);
-            finalMessages = next;
             return next;
           });
-          // Persist the completed thread for this course (slim projection).
-          const sid = useStageStore.getState().stage?.id;
-          if (sid) {
-            useAgentThreadStore.getState().save(sid, {
-              messages: serializeThread(finalMessages),
-              updatedAt: Date.now(),
-            });
-          }
+          // The persistence save runs via the [messages, isRunning] effect once
+          // this update commits and isRunning flips false — see above.
         }
       }
     },
