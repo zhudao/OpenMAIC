@@ -70,6 +70,18 @@ export interface SceneContentOptions {
   languageDirective?: string;
   thinkingConfig?: ThinkingConfig;
   allowProceduralSkill?: boolean;
+  /**
+   * Natural-language edit instruction for whole-slide regeneration (MAIC Editor
+   * agent `regenerate_scene`). When set, the slide content prompt switches to
+   * EDIT MODE. slide-only; ignored by other scene types.
+   */
+  editDirective?: string;
+  /**
+   * The current slide content, fed as the edit baseline so content-specific
+   * instructions operate on the real slide rather than re-rolling from outline.
+   * Only consumed by the slide branch alongside `editDirective`.
+   */
+  baselineContent?: GeneratedSlideContent;
 }
 
 export interface SceneActionsOptions {
@@ -293,6 +305,8 @@ export async function generateSceneContent(
     languageDirective,
     thinkingConfig,
     allowProceduralSkill = false,
+    editDirective,
+    baselineContent,
   } = options;
 
   // Unified path for interactive scenes (both normal and ultra mode)
@@ -330,6 +344,8 @@ export async function generateSceneContent(
         generatedMediaMapping,
         agents,
         languageDirective,
+        editDirective,
+        baselineContent,
       );
     case 'quiz':
       return generateQuizContent(outline, aiCall, languageDirective);
@@ -661,6 +677,8 @@ async function generateSlideContent(
   generatedMediaMapping?: ImageMapping,
   agents?: AgentInfo[],
   languageDirective?: string,
+  editDirective?: string,
+  baselineContent?: GeneratedSlideContent,
 ): Promise<GeneratedSlideContent | null> {
   // Build assigned images description for the prompt
   let assignedImagesText = '无可用图片，禁止插入任何 image 元素';
@@ -762,7 +780,26 @@ async function generateSlideContent(
     log.debug(`Vision images: ${visionImages.map((img) => img.id).join(', ')}`);
   }
 
-  const response = await aiCall(prompts.system, prompts.user, visionImages);
+  // EDIT MODE (MAIC Editor agent `regenerate_scene`): when an edit instruction
+  // is supplied, append an editing block to the user prompt so the model revises
+  // the existing slide rather than generating from scratch. Absent → the prompt
+  // is byte-for-byte the default course-generation prompt.
+  let userPrompt = prompts.user;
+  if (editDirective) {
+    const baselineBlock = baselineContent
+      ? `\nThe current slide content (JSON), to use as the editing baseline:\n${JSON.stringify(
+          { elements: baselineContent.elements, background: baselineContent.background },
+        )}`
+      : '';
+    userPrompt =
+      `${prompts.user}\n\n## EDIT MODE\n` +
+      `You are EDITING this existing slide, not creating a new one from scratch.${baselineBlock}\n` +
+      `Apply this instruction: ${editDirective}\n` +
+      `Preserve everything the instruction does not mention. ` +
+      `Return the full updated slide content in the same schema.`;
+  }
+
+  const response = await aiCall(prompts.system, userPrompt, visionImages);
   const generatedData = parseJsonResponse<GeneratedSlideData>(response);
 
   if (!generatedData || !generatedData.elements || !Array.isArray(generatedData.elements)) {
