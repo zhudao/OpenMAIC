@@ -128,16 +128,16 @@ describe('slide content edit-mode directive', () => {
     expect(lastUser()).toContain('KEEP them');
   });
 
-  it('does not serialize image binary payloads into the edit prompt', async () => {
+  it('serializes the baseline plainly (no [omitted] strip; images flow as img_N id-refs)', async () => {
     const { aiCall, lastUser } = makeCapturingAiCall(
       JSON.stringify({ elements: [], background: null, remark: '' }),
     );
 
-    // A real base64 data: src — the kind that resolveImageIds bakes in before
-    // storage. It must NOT end up serialized into the prompt.
-    const base64Payload = 'A'.repeat(2000);
-    const dataSrc = `data:image/png;base64,${base64Payload}`;
-    const baselineWithDataImage: GeneratedSlideContent = {
+    // The caller (regenerate_scene) lifts real image srcs into the resource
+    // channel BEFORE calling the generator, so the baseline handed here already
+    // carries small img_N id-refs — no base64 to strip. The generator must
+    // serialize it verbatim (no '[omitted]' placeholder).
+    const baselineWithIdRef: GeneratedSlideContent = {
       elements: [
         {
           id: 'img_data',
@@ -146,7 +146,7 @@ describe('slide content edit-mode directive', () => {
           top: 0,
           width: 100,
           height: 100,
-          src: dataSrc,
+          src: 'img_1',
           rotate: 0,
         } as never,
       ],
@@ -156,54 +156,16 @@ describe('slide content edit-mode directive', () => {
 
     await generateSceneContent(slideOutline(), aiCall, {
       editDirective: INSTRUCTION,
-      baselineContent: baselineWithDataImage,
+      baselineContent: baselineWithIdRef,
     });
 
     const prompt = lastUser();
-    // The base64 payload must be stripped from the serialized baseline...
-    expect(prompt).not.toContain(base64Payload);
-    expect(prompt).toContain('[omitted]');
-    // ...but an image element is still present, so the KEEP-images rule applies.
+    // No strip placeholder — the baseline is serialized plainly.
+    expect(prompt).not.toContain('[omitted]');
+    // The id-ref is threaded into the prompt as-is.
+    expect(prompt).toContain('"src":"img_1"');
+    // An image element is present, so the KEEP-images rule applies.
     expect(prompt).toContain('"type":"image"');
     expect(prompt).toContain('KEEP them');
-  });
-
-  it('keeps short non-data media URLs as-is but strips data: payloads', async () => {
-    const { aiCall, lastUser } = makeCapturingAiCall(
-      JSON.stringify({ elements: [], background: null, remark: '' }),
-    );
-
-    const httpSrc = 'https://cdn.example.com/clip.mp4';
-    const dataPoster = `data:image/png;base64,${'B'.repeat(2000)}`;
-    const baseline: GeneratedSlideContent = {
-      elements: [
-        {
-          id: 'vid_1',
-          type: 'video',
-          left: 0,
-          top: 0,
-          width: 100,
-          height: 100,
-          src: httpSrc,
-          poster: dataPoster,
-          autoplay: false,
-          rotate: 0,
-        } as never,
-      ],
-      background: undefined,
-      remark: '',
-    };
-
-    await generateSceneContent(slideOutline(), aiCall, {
-      editDirective: INSTRUCTION,
-      baselineContent: baseline,
-    });
-
-    const prompt = lastUser();
-    // Short non-data URL kept...
-    expect(prompt).toContain(httpSrc);
-    // ...but the base64 poster payload stripped.
-    expect(prompt).not.toContain('B'.repeat(2000));
-    expect(prompt).toContain('[omitted]');
   });
 });

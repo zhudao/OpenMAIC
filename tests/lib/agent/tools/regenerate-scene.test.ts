@@ -4,12 +4,13 @@ import { makeRegenerateSceneTool } from '@/lib/agent/tools/regenerate-scene';
 import type { SceneContext } from '@/lib/agent/tools/regenerate-scene-actions';
 import type { SceneOutline } from '@/lib/types/generation';
 import type { SceneContent } from '@/lib/types/stage';
+import type { PPTElement } from '@maic/dsl';
 
 function slideOutline(id: string): SceneOutline {
   return { id, type: 'slide', title: 'Slide Title', description: 'd', keyPoints: ['a'], order: 0 };
 }
 
-function slideContent(): SceneContent {
+function slideContent(extraElements: PPTElement[] = []): SceneContent {
   return {
     type: 'slide',
     canvas: {
@@ -29,16 +30,17 @@ function slideContent(): SceneContent {
           defaultColor: '#000',
           rotate: 0,
         },
+        ...extraElements,
       ],
     },
   } as unknown as SceneContent;
 }
 
-function slideCtx(id: string): SceneContext {
+function slideCtx(id: string, extraElements: PPTElement[] = []): SceneContext {
   return {
     outline: slideOutline(id),
     allOutlines: [slideOutline(id)],
-    content: slideContent(),
+    content: slideContent(extraElements),
     stageId: 'stage-1',
   };
 }
@@ -88,6 +90,72 @@ describe('regenerate_scene tool', () => {
     expect(prompts[0]).toContain('OLD-BASELINE-SENTINEL');
     // The regenerated content is returned for the client to apply.
     expect(JSON.stringify(res.details.content)).toContain('NEW-CONTENT');
+  });
+
+  it('threads existing images as resources (id-ref baseline + non-empty assignedImages)', async () => {
+    const prompts: string[] = [];
+    const aiCall = vi.fn(async (_system: string, user: string) => {
+      prompts.push(user);
+      return prompts.length === 1 ? NEW_SLIDE_JSON : '[]';
+    });
+
+    const dataSrc = `data:image/png;base64,${'Z'.repeat(2000)}`;
+    const imageEl = {
+      id: 'image_old',
+      type: 'image',
+      left: 0,
+      top: 0,
+      width: 120,
+      height: 80,
+      src: dataSrc,
+      fixedRatio: true,
+      rotate: 0,
+    } as unknown as PPTElement;
+
+    const tool = makeRegenerateSceneTool({
+      aiCall,
+      getSceneContext: (id) => (id === 's1' ? slideCtx('s1', [imageEl]) : undefined),
+    });
+
+    const res = await tool.execute('call-1', { sceneId: 's1', instruction: 'tweak it' });
+
+    expect((res as { isError?: boolean }).isError).toBeFalsy();
+    const contentPrompt = prompts[0];
+    // The base64 payload never enters the prompt...
+    expect(contentPrompt).not.toContain('Z'.repeat(2000));
+    // ...the baseline references the image by its img_N id instead...
+    expect(contentPrompt).toContain('"src":"img_1"');
+    // ...and the image is offered as a resource (assignedImages → prompt).
+    expect(contentPrompt).toContain('img_1');
+    expect(contentPrompt).toContain('Existing slide image');
+    expect(contentPrompt).toContain('KEEP them');
+  });
+
+  it('refuses slides containing video/audio without generating anything', async () => {
+    const aiCall = vi.fn(async () => NEW_SLIDE_JSON);
+    const videoEl = {
+      id: 'video_1',
+      type: 'video',
+      left: 0,
+      top: 0,
+      width: 100,
+      height: 100,
+      src: 'data:video/mp4;base64,VVVV',
+      autoplay: false,
+      rotate: 0,
+    } as unknown as PPTElement;
+
+    const tool = makeRegenerateSceneTool({
+      aiCall,
+      getSceneContext: () => slideCtx('s1', [videoEl]),
+    });
+
+    const res = await tool.execute('call-1', { sceneId: 's1', instruction: 'x' });
+
+    expect((res as { isError?: boolean }).isError).toBe(true);
+    expect((res.content[0] as { text: string }).text).toContain('video/audio');
+    expect(res.details).toEqual({ sceneId: 's1', content: null, actions: [] });
+    expect(aiCall).not.toHaveBeenCalled();
   });
 
   it('refuses non-slide scenes without generating anything', async () => {

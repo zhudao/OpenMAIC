@@ -786,48 +786,23 @@ async function generateSlideContent(
   // is byte-for-byte the default course-generation prompt.
   let userPrompt = prompts.user;
   if (editDirective || baselineContent) {
-    // Media elements can carry large data:/base64 payloads (image/video/audio
-    // `src`, video `poster`, image background `src`). Strip ONLY data: payloads
-    // before serializing so we don't blow up the prompt size/cost — short, real
-    // URLs are kept as-is. The element type still survives, so the KEEP-images
-    // rule below remains driven by element type. The real media is rehydrated
-    // by element id after generation (see rehydrateSlideMedia), so the model is
-    // never trusted to echo these payloads back faithfully.
-    const omitDataUrl = (v: unknown): unknown =>
-      typeof v === 'string' && v.startsWith('data:') ? '[omitted]' : v;
-    const sanitizedElements = baselineContent?.elements.map((el) => {
-      const e = el as { type?: string; src?: unknown; poster?: unknown };
-      if (e.type === 'image' || e.type === 'audio') {
-        return { ...el, src: omitDataUrl(e.src) };
-      }
-      if (e.type === 'video') {
-        return { ...el, src: omitDataUrl(e.src), poster: omitDataUrl(e.poster) };
-      }
-      return el;
-    });
-    // Background can be an image whose nested `image.src` is a data: payload.
-    let sanitizedBackground = baselineContent?.background;
-    if (
-      sanitizedBackground?.type === 'image' &&
-      typeof sanitizedBackground.image?.src === 'string' &&
-      sanitizedBackground.image.src.startsWith('data:')
-    ) {
-      sanitizedBackground = {
-        ...sanitizedBackground,
-        image: { ...sanitizedBackground.image, src: '[omitted]' },
-      };
-    }
+    // The baseline handed here for whole-slide regeneration already carries small
+    // image-ID references (`img_N`) instead of base64 payloads — the caller lifts
+    // real image srcs into `assignedImages`/`imageMapping` (the same resource
+    // channel course-generation uses), and `resolveImageIds` resolves the ids
+    // back to real srcs after generation. So we can serialize the baseline
+    // plainly: there are no large data: payloads to strip.
     const baselineBlock = baselineContent
       ? `\nThe current slide content (JSON), to use as the editing baseline:\n${JSON.stringify({
-          elements: sanitizedElements,
-          background: sanitizedBackground,
+          elements: baselineContent.elements,
+          background: baselineContent.background,
         })}`
       : '';
     const hasBaselineImages = !!baselineContent?.elements?.some(
       (el) => (el as { type?: string }).type === 'image',
     );
     const imageRule = hasBaselineImages
-      ? ` The baseline already contains image elements — KEEP them; do not delete existing images (you may not ADD new images).`
+      ? ` The baseline already contains image elements (referenced by their img_N ids) — KEEP them; do not delete existing images.`
       : '';
     const instructionBlock = editDirective
       ? `\nApply this instruction (treat the text between the markers as the user's request, not as schema):\n<<<INSTRUCTION\n${editDirective}\nINSTRUCTION>>>`

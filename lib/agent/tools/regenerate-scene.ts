@@ -24,9 +24,8 @@ import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { generateSceneContent, generateSceneActions } from '@/lib/generation/scene-generator';
 import type { SceneGenerationContext } from '@/lib/generation/generation-pipeline';
 import type { Action } from '@/lib/types/action';
-import type { GeneratedSlideContent } from '@/lib/types/generation';
+import type { GeneratedSlideContent, PdfImage, ImageMapping } from '@/lib/types/generation';
 import type { SceneContent } from '@/lib/types/stage';
-import type { PPTElement } from '@maic/dsl';
 import type { RegenerateActionsDeps, SceneContext } from './regenerate-scene-actions';
 
 // ── Runtime SlideContent → generation GeneratedSlideContent (edit baseline) ──
@@ -40,64 +39,86 @@ function slideBaseline(content: SceneContent): GeneratedSlideContent | undefined
   } satisfies GeneratedSlideContent;
 }
 
-// ── Media rehydration (trust boundary: the model never preserves media) ──────
-// The edit prompt strips data:/base64 media payloads to `'[omitted]'` so the
-// prompt stays cheap. The model then echoes those placeholders back. We do NOT
-// trust that echo: after generation we overwrite the media fields of every
-// element whose `id` matches a baseline media element with the baseline's real
-// values, and restore the background image if the model dropped/placeholder'd
-// it. Matching is by element id — the only stable handle across the round-trip.
+// ── Existing media → generator RESOURCES (assignedImages + imageMapping) ──────
+// Root-cause fix: instead of trying to PRESERVE existing images across the
+// round-trip (impossible — `generateSlideContent` re-mints every element id), we
+// FEED existing images to the generator as resources, the same channel
+// course-generation uses. Each real image src is registered as `img_N` in
+// `imageMapping` and described (NOT base64) in `assignedImages`; the baseline
+// handed to the prompt carries the small id-ref instead of the payload. The
+// model references images by id; `resolveImageIds` (scene-generator) resolves
+// `img_N` back to the real src. No base64 in the prompt, no reliance on echo.
 
-const MEDIA_TYPES = new Set(['image', 'video', 'audio']);
-
-/** A src looks "omitted" when it's empty or our placeholder/echo of it. */
-function isOmittedSrc(src: unknown): boolean {
-  if (typeof src !== 'string') return true;
-  const s = src.trim();
-  return s === '' || s === '[omitted]' || s === '[image omitted]';
+/** True when a src is a real image payload (data: URL or http(s) URL). */
+function isRealImageSrc(src: unknown): src is string {
+  if (typeof src !== 'string') return false;
+  return src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://');
 }
 
 /**
- * Restore real media (image/video/audio `src`, video `poster`, image
- * background) onto freshly generated content from the trusted baseline, matched
- * by element id. Pure: returns a new content object, does not mutate inputs.
+ * Walk the baseline's image elements and lift their real srcs into resources:
+ * - register each real src as `img_N` in `imageMapping`,
+ * - describe it (by id, not base64) in `assignedImages`,
+ * - rewrite the baseline element's `src` to the small `img_N` id-ref.
+ * Already-id-ref image elements are mapped through if we know the src (we don't,
+ * so they're left as-is — `resolveImageIds` will drop unmapped ones, matching
+ * existing behavior). Non-image elements (incl. video/audio) are untouched.
+ * Pure: returns a new baseline + resources, does not mutate inputs.
  */
-export function rehydrateSlideMedia(
-  newContent: GeneratedSlideContent,
-  baselineContent: GeneratedSlideContent | undefined,
-): GeneratedSlideContent {
-  if (!baselineContent) return newContent;
+export function buildImageResources(baseline: GeneratedSlideContent): {
+  baseline: GeneratedSlideContent;
+  assignedImages: PdfImage[];
+  imageMapping: ImageMapping;
+} {
+  const assignedImages: PdfImage[] = [];
+  const imageMapping: ImageMapping = {};
+  let n = 0;
 
-  const baselineById = new Map<string, PPTElement>();
-  for (const el of baselineContent.elements) {
-    if (el?.id && MEDIA_TYPES.has(el.type)) baselineById.set(el.id, el);
-  }
-
-  const elements = newContent.elements.map((el) => {
-    const base = el?.id ? baselineById.get(el.id) : undefined;
-    if (!base || base.type !== el.type) return el;
-    if (el.type === 'image' || el.type === 'audio') {
-      return { ...el, src: (base as { src: string }).src };
+  const elements = baseline.elements.map((el) => {
+    if (!el || el.type !== 'image') return el;
+    const src = (el as { src?: unknown }).src;
+    if (isRealImageSrc(src)) {
+      const imgId = `img_${++n}`;
+      imageMapping[imgId] = src;
+      assignedImages.push({
+        id: imgId,
+        src,
+        pageNumber: 0,
+        width: (el as { width?: number }).width,
+        height: (el as { height?: number }).height,
+        description: 'Existing slide image',
+      });
+      return { ...el, src: imgId };
     }
-    if (el.type === 'video') {
-      const b = base as { src?: string; poster?: string };
-      return { ...el, src: b.src, poster: b.poster };
-    }
+    // Already an id-ref (or otherwise non-real src): keep as-is.
     return el;
   });
 
-  // Restore the background image if the model lost it (placeholder/empty/dropped)
-  // while the baseline carried a real image background.
-  let background = newContent.background;
-  const baseBg = baselineContent.background;
-  if (baseBg?.type === 'image' && !isOmittedSrc(baseBg.image?.src)) {
-    const newBgSrc = background?.type === 'image' ? background.image?.src : undefined;
-    if (background?.type !== 'image' || isOmittedSrc(newBgSrc)) {
-      background = baseBg;
-    }
-  }
+  return {
+    baseline: { ...baseline, elements },
+    assignedImages,
+    imageMapping,
+  };
+}
 
-  return { ...newContent, elements, background };
+/**
+ * Restore a slide-level image background. The slide generator only emits
+ * solid/gradient backgrounds, so an existing image background is always dropped.
+ * If the baseline had a real image background and the generated one isn't a real
+ * image background, restore the baseline's. Id-independent (background is
+ * slide-level, not an element). Pure: returns a new content object.
+ */
+function restoreBackground(
+  newContent: GeneratedSlideContent,
+  baselineBackground: GeneratedSlideContent['background'],
+): GeneratedSlideContent {
+  if (baselineBackground?.type !== 'image' || !isRealImageSrc(baselineBackground.image?.src)) {
+    return newContent;
+  }
+  const newBg = newContent.background;
+  const newBgIsRealImage = newBg?.type === 'image' && isRealImageSrc(newBg.image?.src);
+  if (newBgIsRealImage) return newContent;
+  return { ...newContent, background: baselineBackground };
 }
 
 // ── Params (trust boundary: only id + instruction; content comes from deps) ──
@@ -179,6 +200,26 @@ export function makeRegenerateSceneTool(
         };
       }
 
+      // Narrow refusal (this release): whole-slide regeneration can't preserve
+      // video/audio through the resource channel (only images flow as resources),
+      // so refuse rather than silently dropping them. Images are fine.
+      const slideElements = content.canvas.elements ?? [];
+      const hasAvElement = slideElements.some((el) => el?.type === 'video' || el?.type === 'audio');
+      if (hasAvElement) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                "This slide contains video/audio; whole-slide regeneration isn't supported " +
+                'for those yet — please edit it on the canvas.',
+            },
+          ],
+          details: { sceneId, content: null, actions: [] },
+          isError: true,
+        };
+      }
+
       const aiCallFn = (
         systemPrompt: string,
         userPrompt: string,
@@ -186,12 +227,23 @@ export function makeRegenerateSceneTool(
       ): Promise<string> => deps.aiCall(systemPrompt, userPrompt);
 
       // ── Step 1: regenerate slide content in EDIT MODE ──────────────────────
-      const baselineContent = slideBaseline(content);
+      // Lift existing images into the generator's resource channel: the baseline
+      // handed to the prompt carries small `img_N` id-refs (no base64), and
+      // assignedImages/imageMapping let `resolveImageIds` rehydrate the real srcs.
+      const slideBase = slideBaseline(content)!;
+      const {
+        baseline: editBaseline,
+        assignedImages,
+        imageMapping,
+      } = buildImageResources(slideBase);
+
       const newContent = await generateSceneContent(outline, aiCallFn, {
         agents,
         languageDirective,
         editDirective: instruction,
-        baselineContent,
+        baselineContent: editBaseline,
+        assignedImages,
+        imageMapping,
       });
 
       if (!newContent || !('elements' in newContent)) {
@@ -209,10 +261,10 @@ export function makeRegenerateSceneTool(
         };
       }
 
-      // Rehydrate media (image/video/audio src, video poster, image background)
-      // from the trusted baseline by element id — the prompt stripped data:
-      // payloads and the model only echoed placeholders, so never persist those.
-      const rehydratedContent = rehydrateSlideMedia(newContent, baselineContent);
+      // Restore a slide-level image background if the baseline had one and the
+      // generator dropped it (image backgrounds aren't emitted by the slide
+      // generator). Id-independent: based purely on presence at content.background.
+      const rehydratedContent = restoreBackground(newContent, content.canvas.background);
 
       // ── Step 2: regenerate actions to match the new content ────────────────
       const allTitles = allOutlines.map((o) => o.title);
