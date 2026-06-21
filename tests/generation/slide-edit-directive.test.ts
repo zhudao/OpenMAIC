@@ -127,4 +127,44 @@ describe('slide content edit-mode directive', () => {
 
     expect(lastUser()).toContain('KEEP them');
   });
+
+  it('does not serialize image binary payloads into the edit prompt', async () => {
+    const { aiCall, lastUser } = makeCapturingAiCall(
+      JSON.stringify({ elements: [], background: null, remark: '' }),
+    );
+
+    // A real base64 data: src — the kind that resolveImageIds bakes in before
+    // storage. It must NOT end up serialized into the prompt.
+    const base64Payload = 'A'.repeat(2000);
+    const dataSrc = `data:image/png;base64,${base64Payload}`;
+    const baselineWithDataImage: GeneratedSlideContent = {
+      elements: [
+        {
+          id: 'img_data',
+          type: 'image',
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 100,
+          src: dataSrc,
+          rotate: 0,
+        } as never,
+      ],
+      background: undefined,
+      remark: '',
+    };
+
+    await generateSceneContent(slideOutline(), aiCall, {
+      editDirective: INSTRUCTION,
+      baselineContent: baselineWithDataImage,
+    });
+
+    const prompt = lastUser();
+    // The base64 payload must be stripped from the serialized baseline...
+    expect(prompt).not.toContain(base64Payload);
+    expect(prompt).toContain('[image omitted]');
+    // ...but an image element is still present, so the KEEP-images rule applies.
+    expect(prompt).toContain('"type":"image"');
+    expect(prompt).toContain('KEEP them');
+  });
 });

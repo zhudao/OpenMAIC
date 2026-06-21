@@ -786,9 +786,20 @@ async function generateSlideContent(
   // is byte-for-byte the default course-generation prompt.
   let userPrompt = prompts.user;
   if (editDirective || baselineContent) {
+    // Image elements can carry large data:/base64 `src` values (image IDs are
+    // resolved to real srcs before storage). Strip those before serializing so
+    // we don't blow up the prompt size/cost — the element type still survives,
+    // so the KEEP-images rule below remains driven by element type.
+    const sanitizedElements = baselineContent?.elements.map((el) => {
+      const e = el as { type?: string; src?: string };
+      if (e.type === 'image' && typeof e.src === 'string') {
+        return { ...el, src: '[image omitted]' };
+      }
+      return el;
+    });
     const baselineBlock = baselineContent
       ? `\nThe current slide content (JSON), to use as the editing baseline:\n${JSON.stringify({
-          elements: baselineContent.elements,
+          elements: sanitizedElements,
           background: baselineContent.background,
         })}`
       : '';

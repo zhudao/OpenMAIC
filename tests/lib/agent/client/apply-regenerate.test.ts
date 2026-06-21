@@ -47,12 +47,16 @@ describe('toRuntimeSlideContent', () => {
 
   it('mints a default canvas when the scene has none', () => {
     const rt = toRuntimeSlideContent(GEN, undefined) as unknown as {
+      schemaVersion?: number;
       canvas: Record<string, unknown>;
     };
     expect(rt.canvas.viewportSize).toBe(1000);
     expect(rt.canvas.viewportRatio).toBe(0.5625);
     expect(rt.canvas.id).toBeTruthy();
-    expect(rt.canvas.schemaVersion).toBe(1);
+    // schemaVersion lives at the SlideContent top level (sibling of canvas),
+    // not inside the canvas object — matching slide-defaults / migrateSlideContent.
+    expect(rt.schemaVersion).toBe(1);
+    expect(rt.canvas.schemaVersion).toBeUndefined();
   });
 
   it('keeps the existing background when the gen omits it (no wipe)', () => {

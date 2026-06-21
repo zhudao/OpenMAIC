@@ -37,10 +37,13 @@ export function toRuntimeSlideContent(
     viewportSize: 1000,
     viewportRatio: 0.5625,
     theme: DEFAULT_THEME,
-    schemaVersion: CURRENT_SLIDE_CONTENT_SCHEMA_VERSION,
   };
   return {
     type: 'slide',
+    // schemaVersion belongs at the SlideContent top level (sibling of `canvas`),
+    // where slide-defaults / createBlankSlideScene put it and migrateSlideContent
+    // reads it — not inside the canvas object.
+    schemaVersion: CURRENT_SLIDE_CONTENT_SCHEMA_VERSION,
     canvas: {
       ...base,
       elements: gen.elements,
