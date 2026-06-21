@@ -786,21 +786,41 @@ async function generateSlideContent(
   // is byte-for-byte the default course-generation prompt.
   let userPrompt = prompts.user;
   if (editDirective || baselineContent) {
-    // Image elements can carry large data:/base64 `src` values (image IDs are
-    // resolved to real srcs before storage). Strip those before serializing so
-    // we don't blow up the prompt size/cost — the element type still survives,
-    // so the KEEP-images rule below remains driven by element type.
+    // Media elements can carry large data:/base64 payloads (image/video/audio
+    // `src`, video `poster`, image background `src`). Strip ONLY data: payloads
+    // before serializing so we don't blow up the prompt size/cost — short, real
+    // URLs are kept as-is. The element type still survives, so the KEEP-images
+    // rule below remains driven by element type. The real media is rehydrated
+    // by element id after generation (see rehydrateSlideMedia), so the model is
+    // never trusted to echo these payloads back faithfully.
+    const omitDataUrl = (v: unknown): unknown =>
+      typeof v === 'string' && v.startsWith('data:') ? '[omitted]' : v;
     const sanitizedElements = baselineContent?.elements.map((el) => {
-      const e = el as { type?: string; src?: string };
-      if (e.type === 'image' && typeof e.src === 'string') {
-        return { ...el, src: '[image omitted]' };
+      const e = el as { type?: string; src?: unknown; poster?: unknown };
+      if (e.type === 'image' || e.type === 'audio') {
+        return { ...el, src: omitDataUrl(e.src) };
+      }
+      if (e.type === 'video') {
+        return { ...el, src: omitDataUrl(e.src), poster: omitDataUrl(e.poster) };
       }
       return el;
     });
+    // Background can be an image whose nested `image.src` is a data: payload.
+    let sanitizedBackground = baselineContent?.background;
+    if (
+      sanitizedBackground?.type === 'image' &&
+      typeof sanitizedBackground.image?.src === 'string' &&
+      sanitizedBackground.image.src.startsWith('data:')
+    ) {
+      sanitizedBackground = {
+        ...sanitizedBackground,
+        image: { ...sanitizedBackground.image, src: '[omitted]' },
+      };
+    }
     const baselineBlock = baselineContent
       ? `\nThe current slide content (JSON), to use as the editing baseline:\n${JSON.stringify({
           elements: sanitizedElements,
-          background: baselineContent.background,
+          background: sanitizedBackground,
         })}`
       : '';
     const hasBaselineImages = !!baselineContent?.elements?.some(

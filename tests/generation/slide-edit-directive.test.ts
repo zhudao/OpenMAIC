@@ -162,9 +162,48 @@ describe('slide content edit-mode directive', () => {
     const prompt = lastUser();
     // The base64 payload must be stripped from the serialized baseline...
     expect(prompt).not.toContain(base64Payload);
-    expect(prompt).toContain('[image omitted]');
+    expect(prompt).toContain('[omitted]');
     // ...but an image element is still present, so the KEEP-images rule applies.
     expect(prompt).toContain('"type":"image"');
     expect(prompt).toContain('KEEP them');
+  });
+
+  it('keeps short non-data media URLs as-is but strips data: payloads', async () => {
+    const { aiCall, lastUser } = makeCapturingAiCall(
+      JSON.stringify({ elements: [], background: null, remark: '' }),
+    );
+
+    const httpSrc = 'https://cdn.example.com/clip.mp4';
+    const dataPoster = `data:image/png;base64,${'B'.repeat(2000)}`;
+    const baseline: GeneratedSlideContent = {
+      elements: [
+        {
+          id: 'vid_1',
+          type: 'video',
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 100,
+          src: httpSrc,
+          poster: dataPoster,
+          autoplay: false,
+          rotate: 0,
+        } as never,
+      ],
+      background: undefined,
+      remark: '',
+    };
+
+    await generateSceneContent(slideOutline(), aiCall, {
+      editDirective: INSTRUCTION,
+      baselineContent: baseline,
+    });
+
+    const prompt = lastUser();
+    // Short non-data URL kept...
+    expect(prompt).toContain(httpSrc);
+    // ...but the base64 poster payload stripped.
+    expect(prompt).not.toContain('B'.repeat(2000));
+    expect(prompt).toContain('[omitted]');
   });
 });

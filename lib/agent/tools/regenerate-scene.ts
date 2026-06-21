@@ -26,6 +26,7 @@ import type { SceneGenerationContext } from '@/lib/generation/generation-pipelin
 import type { Action } from '@/lib/types/action';
 import type { GeneratedSlideContent } from '@/lib/types/generation';
 import type { SceneContent } from '@/lib/types/stage';
+import type { PPTElement } from '@maic/dsl';
 import type { RegenerateActionsDeps, SceneContext } from './regenerate-scene-actions';
 
 // ── Runtime SlideContent → generation GeneratedSlideContent (edit baseline) ──
@@ -37,6 +38,66 @@ function slideBaseline(content: SceneContent): GeneratedSlideContent | undefined
     elements: content.canvas.elements ?? [],
     background: content.canvas.background,
   } satisfies GeneratedSlideContent;
+}
+
+// ── Media rehydration (trust boundary: the model never preserves media) ──────
+// The edit prompt strips data:/base64 media payloads to `'[omitted]'` so the
+// prompt stays cheap. The model then echoes those placeholders back. We do NOT
+// trust that echo: after generation we overwrite the media fields of every
+// element whose `id` matches a baseline media element with the baseline's real
+// values, and restore the background image if the model dropped/placeholder'd
+// it. Matching is by element id — the only stable handle across the round-trip.
+
+const MEDIA_TYPES = new Set(['image', 'video', 'audio']);
+
+/** A src looks "omitted" when it's empty or our placeholder/echo of it. */
+function isOmittedSrc(src: unknown): boolean {
+  if (typeof src !== 'string') return true;
+  const s = src.trim();
+  return s === '' || s === '[omitted]' || s === '[image omitted]';
+}
+
+/**
+ * Restore real media (image/video/audio `src`, video `poster`, image
+ * background) onto freshly generated content from the trusted baseline, matched
+ * by element id. Pure: returns a new content object, does not mutate inputs.
+ */
+export function rehydrateSlideMedia(
+  newContent: GeneratedSlideContent,
+  baselineContent: GeneratedSlideContent | undefined,
+): GeneratedSlideContent {
+  if (!baselineContent) return newContent;
+
+  const baselineById = new Map<string, PPTElement>();
+  for (const el of baselineContent.elements) {
+    if (el?.id && MEDIA_TYPES.has(el.type)) baselineById.set(el.id, el);
+  }
+
+  const elements = newContent.elements.map((el) => {
+    const base = el?.id ? baselineById.get(el.id) : undefined;
+    if (!base || base.type !== el.type) return el;
+    if (el.type === 'image' || el.type === 'audio') {
+      return { ...el, src: (base as { src: string }).src };
+    }
+    if (el.type === 'video') {
+      const b = base as { src?: string; poster?: string };
+      return { ...el, src: b.src, poster: b.poster };
+    }
+    return el;
+  });
+
+  // Restore the background image if the model lost it (placeholder/empty/dropped)
+  // while the baseline carried a real image background.
+  let background = newContent.background;
+  const baseBg = baselineContent.background;
+  if (baseBg?.type === 'image' && !isOmittedSrc(baseBg.image?.src)) {
+    const newBgSrc = background?.type === 'image' ? background.image?.src : undefined;
+    if (background?.type !== 'image' || isOmittedSrc(newBgSrc)) {
+      background = baseBg;
+    }
+  }
+
+  return { ...newContent, elements, background };
 }
 
 // ── Params (trust boundary: only id + instruction; content comes from deps) ──
@@ -148,6 +209,11 @@ export function makeRegenerateSceneTool(
         };
       }
 
+      // Rehydrate media (image/video/audio src, video poster, image background)
+      // from the trusted baseline by element id — the prompt stripped data:
+      // payloads and the model only echoed placeholders, so never persist those.
+      const rehydratedContent = rehydrateSlideMedia(newContent, baselineContent);
+
       // ── Step 2: regenerate actions to match the new content ────────────────
       const allTitles = allOutlines.map((o) => o.title);
       const pageIndex = allOutlines.findIndex((o) => o.id === outline.id);
@@ -158,7 +224,7 @@ export function makeRegenerateSceneTool(
         previousSpeeches: [],
       };
 
-      const actions = await generateSceneActions(outline, newContent, aiCallFn, {
+      const actions = await generateSceneActions(outline, rehydratedContent, aiCallFn, {
         ctx,
         agents,
         languageDirective,
@@ -166,12 +232,12 @@ export function makeRegenerateSceneTool(
 
       const text =
         actions.length > 0
-          ? `Regenerated the slide content (${newContent.elements.length} elements) and ${actions.length} actions.`
-          : `Regenerated the slide content (${newContent.elements.length} elements), but narration regeneration produced no actions — the existing narration is unchanged and may not match the new content.`;
+          ? `Regenerated the slide content (${rehydratedContent.elements.length} elements) and ${actions.length} actions.`
+          : `Regenerated the slide content (${rehydratedContent.elements.length} elements), but narration regeneration produced no actions — the existing narration is unchanged and may not match the new content.`;
 
       return {
         content: [{ type: 'text', text }],
-        details: { sceneId, content: newContent, actions },
+        details: { sceneId, content: rehydratedContent, actions },
       };
     },
   };
