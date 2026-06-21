@@ -100,15 +100,17 @@ export function makeRegenerateSceneTool(
       const { outline, allOutlines, content, stageId, agents, languageDirective } = ctxData;
       void stageId;
 
-      // slide-only this release.
-      if (outline.type !== 'slide') {
+      // slide-only this release — refuse non-slide outlines AND any scene whose
+      // injected content isn't a slide (guards against scene-type desync between
+      // the outline and the actual content payload).
+      if (outline.type !== 'slide' || content.type !== 'slide') {
         return {
           content: [
             {
               type: 'text',
               text:
                 `Cannot regenerate this scene: regenerating the whole scene is only supported ` +
-                `for slides yet (this is a "${outline.type}" scene). Suggest the user edits it on the canvas.`,
+                `for slides yet (this scene is not a slide). Suggest the user edits it on the canvas.`,
             },
           ],
           details: { sceneId, content: null, actions: [] },
@@ -162,13 +164,13 @@ export function makeRegenerateSceneTool(
         languageDirective,
       });
 
+      const text =
+        actions.length > 0
+          ? `Regenerated the slide content (${newContent.elements.length} elements) and ${actions.length} actions.`
+          : `Regenerated the slide content (${newContent.elements.length} elements), but narration regeneration produced no actions — the existing narration is unchanged and may not match the new content.`;
+
       return {
-        content: [
-          {
-            type: 'text',
-            text: `Regenerated the slide content (${newContent.elements.length} elements) and ${actions.length} actions.`,
-          },
-        ],
+        content: [{ type: 'text', text }],
         details: { sceneId, content: newContent, actions },
       };
     },

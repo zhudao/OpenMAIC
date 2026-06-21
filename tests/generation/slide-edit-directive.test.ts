@@ -83,4 +83,48 @@ describe('slide content edit-mode directive', () => {
 
     expect(lastUser()).not.toContain('EDIT MODE');
   });
+
+  it('uses the baseline for a faithful re-render when no editDirective is given', async () => {
+    const { aiCall, lastUser } = makeCapturingAiCall(
+      JSON.stringify({ elements: [], background: null, remark: '' }),
+    );
+
+    await generateSceneContent(slideOutline(), aiCall, { baselineContent: BASELINE });
+
+    // A baseline alone (no instruction) must still enter EDIT MODE so the model
+    // re-renders the existing slide rather than generating one from scratch.
+    expect(lastUser()).toContain('EDIT MODE');
+    expect(lastUser()).toContain('BASELINE-ELEMENT-SENTINEL');
+    expect(lastUser()).toContain('faithfully');
+  });
+
+  it('instructs the model to keep baseline images', async () => {
+    const { aiCall, lastUser } = makeCapturingAiCall(
+      JSON.stringify({ elements: [], background: null, remark: '' }),
+    );
+
+    const baselineWithImage: GeneratedSlideContent = {
+      elements: [
+        {
+          id: 'img_1',
+          type: 'image',
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 100,
+          src: 'https://example.com/i.png',
+          rotate: 0,
+        } as never,
+      ],
+      background: undefined,
+      remark: '',
+    };
+
+    await generateSceneContent(slideOutline(), aiCall, {
+      editDirective: INSTRUCTION,
+      baselineContent: baselineWithImage,
+    });
+
+    expect(lastUser()).toContain('KEEP them');
+  });
 });

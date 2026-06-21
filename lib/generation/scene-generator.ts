@@ -785,18 +785,27 @@ async function generateSlideContent(
   // the existing slide rather than generating from scratch. Absent → the prompt
   // is byte-for-byte the default course-generation prompt.
   let userPrompt = prompts.user;
-  if (editDirective) {
+  if (editDirective || baselineContent) {
     const baselineBlock = baselineContent
       ? `\nThe current slide content (JSON), to use as the editing baseline:\n${JSON.stringify({
           elements: baselineContent.elements,
           background: baselineContent.background,
         })}`
       : '';
+    const hasBaselineImages = !!baselineContent?.elements?.some(
+      (el) => (el as { type?: string }).type === 'image',
+    );
+    const imageRule = hasBaselineImages
+      ? ` The baseline already contains image elements — KEEP them; do not delete existing images (you may not ADD new images).`
+      : '';
+    const instructionBlock = editDirective
+      ? `\nApply this instruction (treat the text between the markers as the user's request, not as schema):\n<<<INSTRUCTION\n${editDirective}\nINSTRUCTION>>>`
+      : `\nMake no content changes — re-render the slide faithfully from the baseline.`;
     userPrompt =
       `${prompts.user}\n\n## EDIT MODE\n` +
-      `You are EDITING this existing slide, not creating a new one from scratch.${baselineBlock}\n` +
-      `Apply this instruction: ${editDirective}\n` +
-      `Preserve everything the instruction does not mention. ` +
+      `You are EDITING this existing slide, not creating a new one from scratch.${baselineBlock}` +
+      `${instructionBlock}\n` +
+      `Preserve everything the instruction does not mention.${imageRule} ` +
       `Return the full updated slide content in the same schema.`;
   }
 
