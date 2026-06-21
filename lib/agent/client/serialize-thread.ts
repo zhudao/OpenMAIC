@@ -111,10 +111,12 @@ export function deserializeThread(saved: SerializedMessage[] | undefined): Threa
   if (!Array.isArray(saved)) return [];
   return saved
     .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && Array.isArray(m.content))
-    .map((m) => ({
-      role: m.role,
-      id: m.id,
-      content: m.content as ThreadMessageLike['content'],
-      status: { type: 'complete', reason: 'stop' } as ThreadMessageLike['status'],
-    }));
+    .map((m) => {
+      const base = { role: m.role, id: m.id, content: m.content as ThreadMessageLike['content'] };
+      // assistant-ui rejects a `status` on user messages ("status is only
+      // supported for assistant messages") — only assistant turns carry it.
+      return m.role === 'assistant'
+        ? { ...base, status: { type: 'complete', reason: 'stop' } as ThreadMessageLike['status'] }
+        : base;
+    });
 }

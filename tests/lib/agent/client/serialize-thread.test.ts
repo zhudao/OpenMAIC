@@ -14,6 +14,8 @@ describe('serializeThread / deserializeThread', () => {
     expect((restored[0].content as unknown as { text: string }[])[0].text).toBe('hello');
     expect((restored[1].content as unknown as { text: string }[])[0].text).toBe('hi there');
     expect(restored[1].status).toEqual({ type: 'complete', reason: 'stop' });
+    // assistant-ui throws if a user message carries a status — it must be unset.
+    expect(restored[0].status).toBeUndefined();
   });
 
   it('keeps tool-call metadata but strips heavy result element data', () => {
