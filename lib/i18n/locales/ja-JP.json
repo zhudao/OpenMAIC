@@ -302,9 +302,25 @@
       "emptyHint": "キャンバスでこのスライドを編集したら、内容に合ったナレーションをAIに再生成させましょう。",
       "placeholder": "このスライドの変更内容を入力…",
       "stop": "生成を停止",
-      "quickRegenerate": "ナレーションを再生成",
-      "quickColloquial": "もっと口語的にする",
-      "quickAnalogy": "身近なたとえを追加"
+      "empty": {
+        "lead": "このページをどう変えたいか教えてください。内容を作り直し、ナレーションも合わせます。",
+        "boundary": "スライドの追加・削除・並べ替えは左のナビから。",
+        "comingSoon": "今後さらに機能を追加予定です。"
+      },
+      "cap": {
+        "content": {
+          "label": "内容を編集",
+          "examples": "「要点を3つに絞って」・「身近な例を追加」"
+        },
+        "narration": {
+          "label": "ナレーションを編集",
+          "examples": "「もっと口語的に」・「編集した内容に合わせて」"
+        },
+        "ask": {
+          "label": "このページについて質問",
+          "examples": "「このページの要点は？」"
+        }
+      }
     },
     "timeline": {
       "title": "ナレーション台本",
@@ -361,6 +377,12 @@
       "elementsCount": "{{count}} 個の要素",
       "restore": "再生成前に戻す",
       "restored": "復元しました"
+    },
+    "readCard": {
+      "title": "ページ内容を読み取り",
+      "reading": "読み取り中",
+      "done": "読み取り済み",
+      "failed": "未読み取り"
     }
   },
   "classroomComplete": {

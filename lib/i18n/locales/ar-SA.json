@@ -302,9 +302,25 @@
       "emptyHint": "بعد تحرير هذه الشريحة على اللوحة، دع الذكاء الاصطناعي يعيد إنشاء سرد يطابق المحتوى.",
       "placeholder": "صف تغييراتك على هذه الشريحة…",
       "stop": "إيقاف التوليد",
-      "quickRegenerate": "إعادة توليد السرد",
-      "quickColloquial": "اجعله أكثر حوارية",
-      "quickAnalogy": "أضف تشبيهًا واقعيًا"
+      "empty": {
+        "lead": "Tell me how to change this slide — I'll redo the content and re-align the narration.",
+        "boundary": "Add / delete / reorder slides from the left nav.",
+        "comingSoon": "More capabilities coming soon."
+      },
+      "cap": {
+        "content": {
+          "label": "Edit content",
+          "examples": "“Condense to 3 bullet points” · “Add a real-world example”"
+        },
+        "narration": {
+          "label": "Edit narration",
+          "examples": "“Make it more conversational” · “Match my canvas edits”"
+        },
+        "ask": {
+          "label": "Ask about this slide",
+          "examples": "“What's the key point here?”"
+        }
+      }
     },
     "timeline": {
       "title": "نص السرد",
@@ -361,6 +377,12 @@
       "elementsCount": "{{count}} عناصر",
       "restore": "استعادة السابق",
       "restored": "تمت الاستعادة"
+    },
+    "readCard": {
+      "title": "Read slide content",
+      "reading": "Reading",
+      "done": "Read",
+      "failed": "Not read"
     }
   },
   "classroomComplete": {
