@@ -8,7 +8,12 @@
  *   NOT a hardcoded workflow). Adding capability later = widening this set.
  * - a `afterToolCall` quota hook (v0 stub: unlimited).
  */
-import { Agent, type AgentTool, type StreamFn } from '@earendil-works/pi-agent-core';
+import {
+  Agent,
+  type AgentMessage,
+  type AgentTool,
+  type StreamFn,
+} from '@earendil-works/pi-agent-core';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { makeAllowlistGate } from './allowlist';
 import { makeQuotaHook } from './quota';
@@ -34,6 +39,8 @@ export interface BuildAgentOptions {
   streamFn: StreamFn;
   systemPrompt: string;
   tools: AgentTool<never, never>[];
+  /** Prior conversation turns to seed the agent with, so it has multi-turn memory. */
+  history?: AgentMessage[];
 }
 
 export function buildAgent(opts: BuildAgentOptions): Agent {
@@ -44,6 +51,9 @@ export function buildAgent(opts: BuildAgentOptions): Agent {
       systemPrompt: opts.systemPrompt,
       model: STUB_MODEL,
       tools: opts.tools,
+      // Seed prior turns so `agent.prompt(newMessage)` runs with the full
+      // conversation in context — without this the agent is stateless per turn.
+      ...(opts.history && opts.history.length > 0 ? { messages: opts.history } : {}),
     },
     beforeToolCall: makeAllowlistGate(V0_ALLOWLIST),
     afterToolCall: makeQuotaHook({ remaining: () => Number.MAX_SAFE_INTEGER }),

@@ -15,7 +15,7 @@
  * actions). Scene/stage context is read from `useStageStore` at send-time and
  * POSTed so the tool never relies on model-fabricated data.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   useExternalStoreRuntime,
   type AppendMessage,
@@ -43,12 +43,40 @@ export interface UseAgentRuntimeOptions {
   scene?: { id: string; title: string };
 }
 
+/** A prior conversation turn sent to the server so the agent has memory. */
+interface HistoryTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 function extractText(message: AppendMessage): string {
   if (typeof message.content === 'string') return message.content;
   return message.content
     .map((p) => (p.type === 'text' ? p.text : ''))
     .filter(Boolean)
     .join('\n');
+}
+
+/** Plain text of a thread message's content (tool-call parts have no text). */
+function messageText(content: ThreadMessageLike['content']): string {
+  if (typeof content === 'string') return content.trim();
+  if (!Array.isArray(content)) return '';
+  return content
+    .map((p) => (p && p.type === 'text' && typeof p.text === 'string' ? p.text : ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+
+/** Project the rendered thread into text-only turns for server-side memory. */
+function toHistory(messages: ThreadMessageLike[]): HistoryTurn[] {
+  const out: HistoryTurn[] = [];
+  for (const m of messages) {
+    const text = messageText(m.content);
+    if (!text) continue;
+    out.push({ role: m.role === 'user' ? 'user' : 'assistant', text });
+  }
+  return out;
 }
 
 function toPiParts(content: PiAssistantContent[]): PiPart[] {
@@ -71,6 +99,13 @@ function toPiParts(content: PiAssistantContent[]): PiPart[] {
 export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
   const [messages, setMessages] = useState<ThreadMessageLike[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+
+  // Mirror the latest committed messages so `onNew` (which is not re-created on
+  // every message change) can read the prior conversation to send as history.
+  const messagesRef = useRef<ThreadMessageLike[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Per-run accumulated state: chronological turns + tool results.
   const turnsRef = useRef<PiPart[][]>([]);
@@ -160,6 +195,10 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
       const userText = extractText(message);
       if (!userText) return;
 
+      // Prior conversation (text turns) captured BEFORE this turn's messages are
+      // appended — sent to the server so the agent has multi-turn memory.
+      const history = toHistory(messagesRef.current);
+
       const turnId = `t-${Date.now()}`;
       const assistantId = `a-${turnId}`;
       turnsRef.current = [];
@@ -242,6 +281,7 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
           body: JSON.stringify({
             message: userText,
             scene: opts.scene,
+            history,
             sceneContextMap,
             // The route reads per-request thinking config from the body (not
             // headers), same as generation — forward it so the agent honors the
