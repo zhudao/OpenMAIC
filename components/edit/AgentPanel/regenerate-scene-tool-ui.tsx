@@ -157,7 +157,13 @@ export const RegenerateSceneUI = makeAssistantToolUI<
   toolName: 'regenerate_scene',
   render: ({ args, status, result, isError, toolCallId }) => {
     const running = status.type === 'running' || status.type === 'requires-action';
-    const failed = !running && (isError || status.type === 'incomplete');
+    // pi-agent-core 0.78.0 does NOT propagate a tool result's `isError` into
+    // `tool_execution_end.isError`, so refusals / generation-failures (which
+    // return `details.content === null`, i.e. nothing was applied) would render
+    // as a green "Updated" badge. Derive failure from the result too: if the run
+    // finished but produced no content, treat it as failed.
+    const noContentApplied = !running && result != null && result.details?.content == null;
+    const failed = !running && (isError || status.type === 'incomplete' || noContentApplied);
     const sceneId = args?.sceneId ?? result?.details?.sceneId;
     return (
       <ToolRow
