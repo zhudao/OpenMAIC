@@ -29,6 +29,57 @@ function slideContent(): SceneContent {
           defaultColor: '#000',
           rotate: 0,
         },
+        {
+          id: 'shape_1',
+          type: 'shape',
+          left: 0,
+          top: 50,
+          width: 100,
+          height: 40,
+          viewBox: [200, 200],
+          path: 'M 0 0',
+          fixedRatio: false,
+          fill: '#fff',
+          rotate: 0,
+          text: {
+            content: '<p>SHAPE-TEXT-SENTINEL</p>',
+            defaultFontName: '',
+            defaultColor: '#000',
+            align: 'middle',
+          },
+        },
+        {
+          id: 'table_1',
+          type: 'table',
+          left: 0,
+          top: 100,
+          width: 200,
+          height: 80,
+          rotate: 0,
+          outline: { width: 1, style: 'solid', color: '#000' },
+          colWidths: [0.5, 0.5],
+          cellMinHeight: 20,
+          data: [
+            [
+              { id: 'c1', colspan: 1, rowspan: 1, text: 'TABLE-CELL-SENTINEL' },
+              { id: 'c2', colspan: 1, rowspan: 1, text: 'B2' },
+            ],
+          ],
+        },
+        {
+          id: 'code_1',
+          type: 'code',
+          left: 0,
+          top: 200,
+          width: 200,
+          height: 80,
+          rotate: 0,
+          language: 'python',
+          lines: [
+            { id: 'L1', content: 'print("CODE-SENTINEL")' },
+            { id: 'L2', content: 'x = 1' },
+          ],
+        },
       ],
     },
   } as unknown as SceneContent;
@@ -54,8 +105,11 @@ describe('read_scene_content tool', () => {
     expect(res.details.sceneId).toBe('s1');
     expect(res.details.title).toBe('Scene Title');
     expect(res.details.type).toBe('slide');
-    // The model must be able to SEE the content to reason about it.
-    expect(JSON.stringify(res.details.content)).toContain('READ-CONTENT-SENTINEL');
+    // details is compact metadata only — the raw content object must NOT be
+    // echoed back (it streams megabytes for base64 images and is never consumed
+    // by the client apply path).
+    expect((res.details as unknown as Record<string, unknown>).content).toBeUndefined();
+    expect(JSON.stringify(res.details)).not.toContain('READ-CONTENT-SENTINEL');
   });
 
   it('puts a content projection (element text snippet) in the model-visible text', async () => {
@@ -67,6 +121,24 @@ describe('read_scene_content tool', () => {
     // The model only sees content[].text, not details — the projection must be there.
     const text = res.content.map((p) => (p as { text?: string }).text ?? '').join('\n');
     expect(text).toContain('READ-CONTENT-SENTINEL');
+  });
+
+  it('extracts text from shape / table / code elements (not just bare type)', async () => {
+    const tool = makeReadSceneContentTool({
+      getSceneContext: (id) => (id === 's1' ? ctxFor('s1') : undefined),
+    });
+    const res = await tool.execute('call-1', { sceneId: 's1' });
+
+    const text = res.content.map((p) => (p as { text?: string }).text ?? '').join('\n');
+    // shape-text content surfaced (not a bare "- shape").
+    expect(text).toContain('SHAPE-TEXT-SENTINEL');
+    expect(text).not.toMatch(/^- shape$/m);
+    // table cell text surfaced.
+    expect(text).toContain('TABLE-CELL-SENTINEL');
+    expect(text).not.toMatch(/^- table$/m);
+    // code line content surfaced.
+    expect(text).toContain('CODE-SENTINEL');
+    expect(text).not.toMatch(/^- code$/m);
   });
 
   it('defaults to the active scene when sceneId is omitted', async () => {

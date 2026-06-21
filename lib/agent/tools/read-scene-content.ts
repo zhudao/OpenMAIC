@@ -31,6 +31,7 @@ export interface ReadSceneContentDeps {
 // is on the slide.
 
 const PROJECTION_CAP = 2000;
+const ELEMENT_TEXT_CAP = 80;
 
 function stripHtml(html: string): string {
   return html
@@ -43,6 +44,58 @@ function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
+/**
+ * Pull the human-readable text out of a single slide element. Mirrors the
+ * @maic/dsl `PPTElement` union — each variant stashes its text differently:
+ *   - text:  `content` (HTML string)
+ *   - shape: `text.content` (ShapeText, HTML string)
+ *   - table: `data` (TableCell[][], each cell carries `text`)
+ *   - code:  `lines` (CodeLine[], each carries `content`)
+ *   - latex: `latex` (source string)
+ * Returns '' for elements with no meaningful text (image / line / chart / …).
+ */
+function extractElementText(el: unknown): string {
+  const e = el as {
+    type?: string;
+    content?: unknown;
+    text?: { content?: unknown };
+    data?: unknown;
+    lines?: unknown;
+    latex?: unknown;
+  };
+  switch (e.type) {
+    case 'text':
+      return typeof e.content === 'string' ? stripHtml(e.content) : '';
+    case 'shape':
+      return typeof e.text?.content === 'string' ? stripHtml(e.text.content) : '';
+    case 'table': {
+      const rows = Array.isArray(e.data) ? (e.data as unknown[]) : [];
+      return rows
+        .flatMap((row) => (Array.isArray(row) ? (row as unknown[]) : []))
+        .map((cell) => {
+          const c = cell as { text?: unknown };
+          return typeof c.text === 'string' ? stripHtml(c.text) : '';
+        })
+        .filter(Boolean)
+        .join(' | ');
+    }
+    case 'code': {
+      const lines = Array.isArray(e.lines) ? (e.lines as unknown[]) : [];
+      return lines
+        .map((line) => {
+          const l = line as { content?: unknown };
+          return typeof l.content === 'string' ? l.content : '';
+        })
+        .join(' ')
+        .trim();
+    }
+    case 'latex':
+      return typeof e.latex === 'string' ? e.latex.trim() : '';
+    default:
+      return '';
+  }
+}
+
 function projectContent(content: SceneContext['content']): string {
   const c = content as { type?: string; canvas?: { elements?: unknown[] } } | undefined;
   let projection: string;
@@ -50,9 +103,9 @@ function projectContent(content: SceneContext['content']): string {
     const elements = Array.isArray(c.canvas?.elements) ? c.canvas!.elements : [];
     projection = elements
       .map((el) => {
-        const e = el as { type?: string; content?: unknown };
+        const e = el as { type?: string };
         const type = e.type ?? 'element';
-        const text = typeof e.content === 'string' ? truncate(stripHtml(e.content), 80) : '';
+        const text = truncate(extractElementText(el), ELEMENT_TEXT_CAP);
         return text ? `- ${type}: ${text}` : `- ${type}`;
       })
       .join('\n');
@@ -80,12 +133,15 @@ export type ReadSceneContentParams = Static<typeof ReadSceneContentParams>;
 
 // ── Details returned to the client ───────────────────────────────────────────
 
+// Compact metadata only. The model gets the full content via `content[].text`;
+// the client apply path never reads this tool's `details.content`, so echoing
+// the raw scene content here is dead weight (and megabytes for base64 images).
 export interface ReadSceneContentDetails {
   sceneId: string;
   title: string;
   type: string;
+  /** Short text-only outline (title / description / keyPoints) — safe to keep. */
   outline: SceneContext['outline'];
-  content: SceneContext['content'];
 }
 
 // ── Factory ──────────────────────────────────────────────────────────────────
@@ -120,7 +176,6 @@ export function makeReadSceneContentTool(
             title: '',
             type: '',
             outline: undefined as unknown as SceneContext['outline'],
-            content: undefined as unknown as SceneContext['content'],
           },
           isError: true,
         };
@@ -145,7 +200,6 @@ export function makeReadSceneContentTool(
           title: outline.title,
           type: outline.type,
           outline,
-          content,
         },
       };
     },
