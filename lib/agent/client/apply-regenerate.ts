@@ -68,7 +68,7 @@ export interface RegenerateDetails {
 }
 
 export interface RegenerateApplyPlan {
-  /** Pre-regenerate scene state to keep for restore (regenerate_scene only). */
+  /** Pre-regenerate scene state to keep for restore (both regenerate tools). */
   snapshot: { sceneId: string; content: SceneContent; actions: Action[] } | null;
   /** Partial scene update to apply, or null if nothing should change. */
   patch: Partial<Scene> | null;
@@ -79,8 +79,8 @@ export interface RegenerateApplyPlan {
  * - `regenerate_scene` (content present): snapshot the current scene, then apply
  *   the converted content plus actions (actions only when non-empty — an empty
  *   array would wipe the narration).
- * - `regenerate_scene_actions` (no content): apply actions only when non-empty;
- *   no snapshot (unchanged v0 behaviour).
+ * - `regenerate_scene_actions` (no content): apply actions only when non-empty,
+ *   and snapshot the prior narration so it can be reverted too.
  */
 export function planRegenerateApply(
   details: RegenerateDetails,
@@ -115,6 +115,13 @@ export function planRegenerateApply(
     return { snapshot, patch };
   }
 
-  if (actions.length > 0) return { snapshot: null, patch: { actions } };
+  if (actions.length > 0) {
+    // Narration-only regen: keep a snapshot (current content unchanged + prior
+    // actions) so this card can offer Restore too.
+    const snapshot = scene
+      ? { sceneId, content: scene.content, actions: scene.actions ?? [] }
+      : null;
+    return { snapshot, patch: { actions } };
+  }
   return { snapshot: null, patch: null };
 }

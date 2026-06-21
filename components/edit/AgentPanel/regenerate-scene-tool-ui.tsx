@@ -7,44 +7,15 @@
  * on the always-visible card row (ToolCard `barAction`): whole-slide regeneration
  * applies directly to the canvas, so revert is one tap — no Ctrl+Z, no expanding.
  */
-import { AlertCircle, Check, Loader2, Undo2, Wrench } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Wrench } from 'lucide-react';
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { useRegenSnapshots } from '@/lib/agent/client/regen-snapshots';
-import { applyScenePatchInSync } from '@/lib/agent/client/apply-slide-content';
 import { ToolCard, type ToolStatus } from './tool-card';
+import { RestoreButton } from './restore-button';
 
 interface RegenerateSceneResult {
   content?: { type: string; text?: string }[];
   details?: { sceneId?: string; content?: { elements?: unknown[] } | null; actions?: unknown[] };
-}
-
-function RestoreButton({ toolCallId }: { toolCallId: string }) {
-  const { t } = useI18n();
-  const snap = useRegenSnapshots((s) => s.snapshots[toolCallId]);
-  if (!snap) return null;
-  if (snap.restored) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-        <Undo2 className="size-3" />
-        {t('edit.regenScene.restored')}
-      </span>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={() =>
-        useRegenSnapshots
-          .getState()
-          .restore(toolCallId, (id, patch) => applyScenePatchInSync(id, patch))
-      }
-      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
-    >
-      <Undo2 className="size-3" />
-      {t('edit.regenScene.restore')}
-    </button>
-  );
 }
 
 function RegenerateSceneCard({

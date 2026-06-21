@@ -124,13 +124,20 @@ describe('planRegenerateApply', () => {
     expect((plan.patch as Record<string, unknown>).actions).toBeUndefined();
   });
 
-  it('regenerate_scene_actions: actions-only, no snapshot, no content', () => {
+  it('regenerate_scene_actions: actions-only patch + a snapshot of the prior narration', () => {
+    const scene = slideScene();
     const plan = planRegenerateApply(
       { sceneId: 's1', actions: [{ type: 'speech', id: 'a_new' } as never] },
-      slideScene(),
+      scene,
     );
-    expect(plan.snapshot).toBeNull();
+    // No content change, but a snapshot (current content + prior actions) so the
+    // narration regen can be reverted too.
     expect(plan.patch).toEqual({ actions: [{ type: 'speech', id: 'a_new' }] });
+    expect(plan.snapshot).toEqual({
+      sceneId: 's1',
+      content: scene.content,
+      actions: scene.actions ?? [],
+    });
   });
 
   it('does nothing without a sceneId', () => {

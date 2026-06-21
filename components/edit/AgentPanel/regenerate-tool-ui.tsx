@@ -11,6 +11,7 @@ import { makeAssistantToolUI } from '@assistant-ui/react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { cueLabel } from '@/components/edit/ActionsBar/cue-meta';
 import { ToolCard, type ToolStatus } from './tool-card';
+import { RestoreButton } from './restore-button';
 
 type TFn = (key: string, options?: Record<string, unknown>) => string;
 
@@ -34,12 +35,14 @@ function RegenerateActionsCard({
   sceneId,
   actions,
   failText,
+  toolCallId,
 }: {
   running: boolean;
   failed: boolean;
   sceneId?: string;
   actions: { type?: string }[];
   failText?: string;
+  toolCallId: string;
 }) {
   const { t } = useI18n();
   const toolStatus: ToolStatus = running ? 'running' : failed ? 'failed' : 'done';
@@ -60,6 +63,7 @@ function RegenerateActionsCard({
       status={toolStatus}
       statusIcon={statusIcon}
       statusLabel={statusLabel}
+      barAction={!failed ? <RestoreButton toolCallId={toolCallId} /> : undefined}
     >
       {hasBody ? (
         <>
@@ -76,7 +80,7 @@ function RegenerateActionsCard({
 export const RegenerateSceneActionsUI = makeAssistantToolUI<{ sceneId?: string }, RegenerateResult>(
   {
     toolName: 'regenerate_scene_actions',
-    render: ({ args, status, result, isError }) => {
+    render: ({ args, status, result, isError, toolCallId }) => {
       const running = status.type === 'running' || status.type === 'requires-action';
       const failed = !running && (isError || status.type === 'incomplete');
       return (
@@ -86,6 +90,7 @@ export const RegenerateSceneActionsUI = makeAssistantToolUI<{ sceneId?: string }
           sceneId={args?.sceneId ?? result?.details?.sceneId}
           actions={result?.details?.actions ?? []}
           failText={result?.content?.[0]?.text}
+          toolCallId={toolCallId}
         />
       );
     },
