@@ -31,13 +31,12 @@ export function toRuntimeSlideContent(
   gen: GeneratedSlideContent,
   existingCanvas?: Record<string, unknown>,
 ): SceneContent {
-  const base =
-    existingCanvas ?? {
-      id: nanoid(),
-      viewportSize: 1000,
-      viewportRatio: 0.5625,
-      theme: DEFAULT_THEME,
-    };
+  const base = existingCanvas ?? {
+    id: nanoid(),
+    viewportSize: 1000,
+    viewportRatio: 0.5625,
+    theme: DEFAULT_THEME,
+  };
   return {
     type: 'slide',
     canvas: { ...base, elements: gen.elements, background: gen.background },
@@ -76,7 +75,9 @@ export function planRegenerateApply(
   const actions = Array.isArray(details.actions) ? details.actions : [];
 
   if (details.content && Array.isArray(details.content.elements)) {
-    const sceneContent = scene?.content as { type?: string; canvas?: Record<string, unknown> } | undefined;
+    const sceneContent = scene?.content as
+      | { type?: string; canvas?: Record<string, unknown> }
+      | undefined;
     const existingCanvas = sceneContent?.type === 'slide' ? sceneContent.canvas : undefined;
     const runtime = toRuntimeSlideContent(details.content, existingCanvas);
     const patch: Partial<Scene> = {

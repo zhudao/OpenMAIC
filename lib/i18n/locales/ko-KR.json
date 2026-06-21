@@ -304,6 +304,15 @@
       "notGenerated": "생성 안 됨",
       "updated": "업데이트됨"
     },
+    "regenScene": {
+      "title": "슬라이드 다시 생성",
+      "generating": "생성 중",
+      "updated": "업데이트됨",
+      "notGenerated": "생성 안 됨",
+      "elementsCount": "요소 {{count}}개",
+      "restore": "이전 상태로 복원",
+      "restored": "복원됨"
+    },
     "background": {
       "image": "이미지",
       "label": "배경",

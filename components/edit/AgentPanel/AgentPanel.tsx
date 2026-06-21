@@ -36,6 +36,7 @@ import { useAgentRuntime } from '@/lib/agent/client/use-agent-runtime';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { MarkdownText } from './markdown-text';
 import { RegenerateSceneActionsUI } from './regenerate-tool-ui';
+import { RegenerateSceneUI } from './regenerate-scene-tool-ui';
 
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 640;
@@ -203,6 +204,7 @@ export function AgentPanel({ scene }: { scene?: { id: string; title: string } })
 
       <AssistantRuntimeProvider runtime={runtime}>
         <RegenerateSceneActionsUI />
+        <RegenerateSceneUI />
 
         <ThreadPrimitive.Root className="relative flex min-h-0 flex-1 flex-col">
           <ThreadPrimitive.Viewport className="flex-1 space-y-6 overflow-y-auto px-4 py-5 scroll-smooth">

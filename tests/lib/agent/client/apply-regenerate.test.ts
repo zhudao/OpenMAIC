@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  toRuntimeSlideContent,
-  planRegenerateApply,
-} from '@/lib/agent/client/apply-regenerate';
+import { toRuntimeSlideContent, planRegenerateApply } from '@/lib/agent/client/apply-regenerate';
 import type { GeneratedSlideContent } from '@/lib/types/generation';
 import type { Scene, SceneContent } from '@/lib/types/stage';
 
@@ -31,8 +28,15 @@ function slideScene(): Pick<Scene, 'content' | 'actions'> {
 
 describe('toRuntimeSlideContent', () => {
   it('preserves the existing canvas (id/viewport/theme) and overrides elements + background', () => {
-    const existingCanvas = { id: 'existing-canvas', viewportSize: 1234, theme: { fontName: 'KeepMe' } };
-    const rt = toRuntimeSlideContent(GEN, existingCanvas) as { type: string; canvas: Record<string, unknown> };
+    const existingCanvas = {
+      id: 'existing-canvas',
+      viewportSize: 1234,
+      theme: { fontName: 'KeepMe' },
+    };
+    const rt = toRuntimeSlideContent(GEN, existingCanvas) as unknown as {
+      type: string;
+      canvas: Record<string, unknown>;
+    };
     expect(rt.type).toBe('slide');
     expect(rt.canvas.id).toBe('existing-canvas');
     expect(rt.canvas.viewportSize).toBe(1234);
@@ -42,7 +46,9 @@ describe('toRuntimeSlideContent', () => {
   });
 
   it('mints a default canvas when the scene has none', () => {
-    const rt = toRuntimeSlideContent(GEN, undefined) as { canvas: Record<string, unknown> };
+    const rt = toRuntimeSlideContent(GEN, undefined) as unknown as {
+      canvas: Record<string, unknown>;
+    };
     expect(rt.canvas.viewportSize).toBe(1000);
     expect(rt.canvas.viewportRatio).toBe(0.5625);
     expect(rt.canvas.id).toBeTruthy();
@@ -59,9 +65,14 @@ describe('planRegenerateApply', () => {
     // snapshot is the PRE-regenerate scene, for restore.
     expect(plan.snapshot?.sceneId).toBe('s1');
     expect((plan.snapshot?.actions[0] as { id: string }).id).toBe('a_old');
-    expect((plan.snapshot?.content as { canvas: { elements: { id: string }[] } }).canvas.elements[0].id).toBe('e_old');
+    expect(
+      (plan.snapshot?.content as { canvas: { elements: { id: string }[] } }).canvas.elements[0].id,
+    ).toBe('e_old');
     // patch applies the new content + actions.
-    const patch = plan.patch as { content: { canvas: { elements: { id: string }[] } }; actions: { id: string }[] };
+    const patch = plan.patch as {
+      content: { canvas: { elements: { id: string }[] } };
+      actions: { id: string }[];
+    };
     expect(patch.content.canvas.elements[0].id).toBe('e_new');
     expect(patch.actions[0].id).toBe('a_new');
   });

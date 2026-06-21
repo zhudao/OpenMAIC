@@ -352,6 +352,15 @@
       "generating": "جارٍ التوليد",
       "notGenerated": "لم يُولّد",
       "updated": "تم التحديث"
+    },
+    "regenScene": {
+      "title": "إعادة توليد الشريحة",
+      "generating": "جارٍ التوليد",
+      "updated": "تم التحديث",
+      "notGenerated": "لم يُولّد",
+      "elementsCount": "{{count}} عناصر",
+      "restore": "استعادة السابق",
+      "restored": "تمت الاستعادة"
     }
   },
   "classroomComplete": {

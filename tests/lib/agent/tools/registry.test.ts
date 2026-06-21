@@ -9,7 +9,9 @@ const deps = {
 
 describe('agent toolset registry', () => {
   it('builds the three v0 tools', () => {
-    const names = buildToolset(deps).map((t) => t.name).sort();
+    const names = buildToolset(deps)
+      .map((t) => t.name)
+      .sort();
     expect(names).toEqual(['read_scene_content', 'regenerate_scene', 'regenerate_scene_actions']);
   });
 

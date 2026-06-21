@@ -352,6 +352,15 @@
       "generating": "Генерация",
       "notGenerated": "Не сгенерировано",
       "updated": "Обновлено"
+    },
+    "regenScene": {
+      "title": "Сгенерировать слайд заново",
+      "generating": "Генерация",
+      "updated": "Обновлено",
+      "notGenerated": "Не сгенерировано",
+      "elementsCount": "{{count}} элементов",
+      "restore": "Вернуть прежний вариант",
+      "restored": "Восстановлено"
     }
   },
   "classroomComplete": {

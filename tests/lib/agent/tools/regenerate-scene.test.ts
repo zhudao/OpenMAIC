@@ -80,7 +80,7 @@ describe('regenerate_scene tool', () => {
       instruction: '<<REGEN-INSTRUCTION-SENTINEL>>',
     });
 
-    expect(res.isError).toBeFalsy();
+    expect((res as { isError?: boolean }).isError).toBeFalsy();
     expect(res.details.sceneId).toBe('s1');
     // The content-generation prompt ran in EDIT MODE with the instruction + baseline.
     expect(prompts[0]).toContain('EDIT MODE');
@@ -102,7 +102,7 @@ describe('regenerate_scene tool', () => {
 
     const res = await tool.execute('call-1', { sceneId: 'q1' });
 
-    expect(res.isError).toBe(true);
+    expect((res as { isError?: boolean }).isError).toBe(true);
     expect(aiCall).not.toHaveBeenCalled();
   });
 
@@ -110,7 +110,7 @@ describe('regenerate_scene tool', () => {
     const aiCall = vi.fn(async () => NEW_SLIDE_JSON);
     const tool = makeRegenerateSceneTool({ aiCall, getSceneContext: () => undefined });
     const res = await tool.execute('call-1', { sceneId: 'nope' });
-    expect(res.isError).toBe(true);
+    expect((res as { isError?: boolean }).isError).toBe(true);
     expect(aiCall).not.toHaveBeenCalled();
   });
 });

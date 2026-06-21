@@ -352,6 +352,15 @@
       "generating": "生成中",
       "notGenerated": "未生成",
       "updated": "更新済み"
+    },
+    "regenScene": {
+      "title": "スライドを再生成",
+      "generating": "生成中",
+      "updated": "更新済み",
+      "notGenerated": "未生成",
+      "elementsCount": "{{count}} 個の要素",
+      "restore": "再生成前に戻す",
+      "restored": "復元しました"
     }
   },
   "classroomComplete": {

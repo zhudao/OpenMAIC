@@ -787,9 +787,10 @@ async function generateSlideContent(
   let userPrompt = prompts.user;
   if (editDirective) {
     const baselineBlock = baselineContent
-      ? `\nThe current slide content (JSON), to use as the editing baseline:\n${JSON.stringify(
-          { elements: baselineContent.elements, background: baselineContent.background },
-        )}`
+      ? `\nThe current slide content (JSON), to use as the editing baseline:\n${JSON.stringify({
+          elements: baselineContent.elements,
+          background: baselineContent.background,
+        })}`
       : '';
     userPrompt =
       `${prompts.user}\n\n## EDIT MODE\n` +

@@ -352,6 +352,15 @@
       "generating": "Generating",
       "notGenerated": "Not generated",
       "updated": "Updated"
+    },
+    "regenScene": {
+      "title": "Regenerate slide",
+      "generating": "Generating",
+      "updated": "Updated",
+      "notGenerated": "Not generated",
+      "elementsCount": "{{count}} elements",
+      "restore": "Restore previous",
+      "restored": "Restored"
     }
   },
   "classroomComplete": {

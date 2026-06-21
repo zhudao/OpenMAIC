@@ -45,10 +45,12 @@ function ctxFor(id: string): SceneContext {
 
 describe('read_scene_content tool', () => {
   it('returns the trusted scene projection for a known sceneId', async () => {
-    const tool = makeReadSceneContentTool({ getSceneContext: (id) => (id === 's1' ? ctxFor('s1') : undefined) });
+    const tool = makeReadSceneContentTool({
+      getSceneContext: (id) => (id === 's1' ? ctxFor('s1') : undefined),
+    });
     const res = await tool.execute('call-1', { sceneId: 's1' });
 
-    expect(res.isError).toBeFalsy();
+    expect((res as { isError?: boolean }).isError).toBeFalsy();
     expect(res.details.sceneId).toBe('s1');
     expect(res.details.title).toBe('Scene Title');
     expect(res.details.type).toBe('slide');
@@ -59,7 +61,7 @@ describe('read_scene_content tool', () => {
   it('errors when the scene context is missing', async () => {
     const tool = makeReadSceneContentTool({ getSceneContext: () => undefined });
     const res = await tool.execute('call-1', { sceneId: 'nope' });
-    expect(res.isError).toBe(true);
+    expect((res as { isError?: boolean }).isError).toBe(true);
   });
 
   it('reads non-slide scenes too (read is safe for all types)', async () => {
@@ -71,7 +73,7 @@ describe('read_scene_content tool', () => {
     };
     const tool = makeReadSceneContentTool({ getSceneContext: () => quizCtx });
     const res = await tool.execute('call-1', { sceneId: 'q1' });
-    expect(res.isError).toBeFalsy();
+    expect((res as { isError?: boolean }).isError).toBeFalsy();
     expect(res.details.type).toBe('quiz');
   });
 });

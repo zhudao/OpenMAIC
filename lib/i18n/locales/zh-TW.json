@@ -352,6 +352,15 @@
       "generating": "生成中",
       "notGenerated": "未生成",
       "updated": "已更新"
+    },
+    "regenScene": {
+      "title": "重新生成頁面",
+      "generating": "生成中",
+      "updated": "已更新",
+      "notGenerated": "未生成",
+      "elementsCount": "{{count}} 個元素",
+      "restore": "還原到重生成前",
+      "restored": "已還原"
     }
   },
   "whiteboard": {
