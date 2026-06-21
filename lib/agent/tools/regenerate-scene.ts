@@ -102,23 +102,13 @@ export function buildImageResources(baseline: GeneratedSlideContent): {
 }
 
 /**
- * Restore a slide-level image background. The slide generator only emits
- * solid/gradient backgrounds, so an existing image background is always dropped.
- * If the baseline had a real image background and the generated one isn't a real
- * image background, restore the baseline's. Id-independent (background is
- * slide-level, not an element). Pure: returns a new content object.
+ * True when a slide-level background is a real image background (DSL
+ * `SlideBackground` with `type === 'image'` and a real `image.src`). Used to
+ * narrow-refuse image-background slides: the pipeline can't resolve background
+ * image ids through the resource channel (only element images flow there).
  */
-function restoreBackground(
-  newContent: GeneratedSlideContent,
-  baselineBackground: GeneratedSlideContent['background'],
-): GeneratedSlideContent {
-  if (baselineBackground?.type !== 'image' || !isRealImageSrc(baselineBackground.image?.src)) {
-    return newContent;
-  }
-  const newBg = newContent.background;
-  const newBgIsRealImage = newBg?.type === 'image' && isRealImageSrc(newBg.image?.src);
-  if (newBgIsRealImage) return newContent;
-  return { ...newContent, background: baselineBackground };
+function isImageBackground(background: GeneratedSlideContent['background']): boolean {
+  return background?.type === 'image' && isRealImageSrc(background.image?.src);
 }
 
 // ── Params (trust boundary: only id + instruction; content comes from deps) ──
@@ -201,18 +191,21 @@ export function makeRegenerateSceneTool(
       }
 
       // Narrow refusal (this release): whole-slide regeneration can't preserve
-      // video/audio through the resource channel (only images flow as resources),
-      // so refuse rather than silently dropping them. Images are fine.
+      // video/audio or a slide-level image background through the resource channel
+      // (only element images flow as resources, and background image ids can't be
+      // resolved), so refuse rather than silently dropping them. Element images
+      // are fine.
       const slideElements = content.canvas.elements ?? [];
       const hasAvElement = slideElements.some((el) => el?.type === 'video' || el?.type === 'audio');
-      if (hasAvElement) {
+      const hasImageBackground = isImageBackground(content.canvas.background);
+      if (hasAvElement || hasImageBackground) {
         return {
           content: [
             {
               type: 'text',
               text:
-                "This slide contains video/audio; whole-slide regeneration isn't supported " +
-                'for those yet — please edit it on the canvas.',
+                'This slide contains video/audio or an image background; whole-slide ' +
+                "regeneration isn't supported for those yet — please edit it on the canvas.",
             },
           ],
           details: { sceneId, content: null, actions: [] },
@@ -261,10 +254,8 @@ export function makeRegenerateSceneTool(
         };
       }
 
-      // Restore a slide-level image background if the baseline had one and the
-      // generator dropped it (image backgrounds aren't emitted by the slide
-      // generator). Id-independent: based purely on presence at content.background.
-      const rehydratedContent = restoreBackground(newContent, content.canvas.background);
+      // The generator returns solid/gradient backgrounds; image-background slides
+      // were refused above, so the returned background is kept as-is.
 
       // ── Step 2: regenerate actions to match the new content ────────────────
       const allTitles = allOutlines.map((o) => o.title);
@@ -276,7 +267,7 @@ export function makeRegenerateSceneTool(
         previousSpeeches: [],
       };
 
-      const actions = await generateSceneActions(outline, rehydratedContent, aiCallFn, {
+      const actions = await generateSceneActions(outline, newContent, aiCallFn, {
         ctx,
         agents,
         languageDirective,
@@ -284,12 +275,12 @@ export function makeRegenerateSceneTool(
 
       const text =
         actions.length > 0
-          ? `Regenerated the slide content (${rehydratedContent.elements.length} elements) and ${actions.length} actions.`
-          : `Regenerated the slide content (${rehydratedContent.elements.length} elements), but narration regeneration produced no actions — the existing narration is unchanged and may not match the new content.`;
+          ? `Regenerated the slide content (${newContent.elements.length} elements) and ${actions.length} actions.`
+          : `Regenerated the slide content (${newContent.elements.length} elements), but narration regeneration produced no actions — the existing narration is unchanged and may not match the new content.`;
 
       return {
         content: [{ type: 'text', text }],
-        details: { sceneId, content: rehydratedContent, actions },
+        details: { sceneId, content: newContent, actions },
       };
     },
   };

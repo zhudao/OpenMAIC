@@ -158,6 +158,27 @@ describe('regenerate_scene tool', () => {
     expect(aiCall).not.toHaveBeenCalled();
   });
 
+  it('refuses slides with a slide-level image background without generating anything', async () => {
+    const aiCall = vi.fn(async () => NEW_SLIDE_JSON);
+    const ctx = slideCtx('s1');
+    (ctx.content as unknown as { canvas: { background: unknown } }).canvas.background = {
+      type: 'image',
+      image: { src: 'data:image/png;base64,IIII', size: 'cover' },
+    };
+
+    const tool = makeRegenerateSceneTool({
+      aiCall,
+      getSceneContext: () => ctx,
+    });
+
+    const res = await tool.execute('call-1', { sceneId: 's1', instruction: 'x' });
+
+    expect((res as { isError?: boolean }).isError).toBe(true);
+    expect((res.content[0] as { text: string }).text).toContain('image background');
+    expect(res.details).toEqual({ sceneId: 's1', content: null, actions: [] });
+    expect(aiCall).not.toHaveBeenCalled();
+  });
+
   it('refuses non-slide scenes without generating anything', async () => {
     const aiCall = vi.fn(async () => NEW_SLIDE_JSON);
     const quizCtx: SceneContext = {
