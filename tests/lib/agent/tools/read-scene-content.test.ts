@@ -1,0 +1,77 @@
+import { describe, expect, it } from 'vitest';
+
+import { makeReadSceneContentTool } from '@/lib/agent/tools/read-scene-content';
+import type { SceneContext } from '@/lib/agent/tools/regenerate-scene-actions';
+import type { SceneOutline } from '@/lib/types/generation';
+import type { SceneContent } from '@/lib/types/stage';
+
+function slideOutline(id: string, title: string): SceneOutline {
+  return { id, type: 'slide', title, description: 'd', keyPoints: ['a', 'b'], order: 0 };
+}
+
+function slideContent(): SceneContent {
+  return {
+    type: 'slide',
+    canvas: {
+      id: 'cv',
+      viewportSize: 1000,
+      viewportRatio: 0.5625,
+      elements: [
+        {
+          id: 'text_1',
+          type: 'text',
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 40,
+          content: '<p>READ-CONTENT-SENTINEL</p>',
+          defaultFontName: '',
+          defaultColor: '#000',
+          rotate: 0,
+        },
+      ],
+    },
+  } as unknown as SceneContent;
+}
+
+function ctxFor(id: string): SceneContext {
+  return {
+    outline: slideOutline(id, 'Scene Title'),
+    allOutlines: [slideOutline(id, 'Scene Title')],
+    content: slideContent(),
+    stageId: 'stage-1',
+  };
+}
+
+describe('read_scene_content tool', () => {
+  it('returns the trusted scene projection for a known sceneId', async () => {
+    const tool = makeReadSceneContentTool({ getSceneContext: (id) => (id === 's1' ? ctxFor('s1') : undefined) });
+    const res = await tool.execute('call-1', { sceneId: 's1' });
+
+    expect(res.isError).toBeFalsy();
+    expect(res.details.sceneId).toBe('s1');
+    expect(res.details.title).toBe('Scene Title');
+    expect(res.details.type).toBe('slide');
+    // The model must be able to SEE the content to reason about it.
+    expect(JSON.stringify(res.details.content)).toContain('READ-CONTENT-SENTINEL');
+  });
+
+  it('errors when the scene context is missing', async () => {
+    const tool = makeReadSceneContentTool({ getSceneContext: () => undefined });
+    const res = await tool.execute('call-1', { sceneId: 'nope' });
+    expect(res.isError).toBe(true);
+  });
+
+  it('reads non-slide scenes too (read is safe for all types)', async () => {
+    const quizCtx: SceneContext = {
+      outline: { id: 'q1', type: 'quiz', title: 'Quiz', description: '', keyPoints: [], order: 1 },
+      allOutlines: [],
+      content: { type: 'quiz', questions: [] } as unknown as SceneContent,
+      stageId: 'stage-1',
+    };
+    const tool = makeReadSceneContentTool({ getSceneContext: () => quizCtx });
+    const res = await tool.execute('call-1', { sceneId: 'q1' });
+    expect(res.isError).toBeFalsy();
+    expect(res.details.type).toBe('quiz');
+  });
+});
