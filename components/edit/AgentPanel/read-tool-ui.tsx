@@ -6,7 +6,7 @@
  * Without this, a turn that reads the slide showed a blank gap in the thread;
  * now every tool call renders a uniform card.
  */
-import { AlertCircle, Check, Eye, Loader2 } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { ToolCard, type ToolStatus } from './tool-card';
@@ -26,7 +26,6 @@ function ReadCard({
 }) {
   const { t } = useI18n();
   const status: ToolStatus = running ? 'running' : failed ? 'failed' : 'done';
-  const statusIcon = running ? Loader2 : failed ? AlertCircle : Check;
   const statusLabel = running
     ? t('edit.readCard.reading')
     : failed
@@ -39,7 +38,6 @@ function ReadCard({
       icon={Eye}
       sceneId={sceneId}
       status={status}
-      statusIcon={statusIcon}
       statusLabel={statusLabel}
     />
   );

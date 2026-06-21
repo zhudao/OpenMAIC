@@ -6,7 +6,7 @@
  * isn't rendered — this tool regenerates a scene's actions wholesale rather than
  * producing a text diff).
  */
-import { AlertCircle, Check, Loader2, Wrench } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { cueLabel } from '@/components/edit/ActionsBar/cue-meta';
@@ -46,7 +46,6 @@ function RegenerateActionsCard({
 }) {
   const { t } = useI18n();
   const toolStatus: ToolStatus = running ? 'running' : failed ? 'failed' : 'done';
-  const statusIcon = running ? Loader2 : failed ? AlertCircle : Check;
   const statusLabel = running
     ? t('edit.regen.generating')
     : failed
@@ -61,7 +60,6 @@ function RegenerateActionsCard({
       icon={Wrench}
       sceneId={sceneId}
       status={toolStatus}
-      statusIcon={statusIcon}
       statusLabel={statusLabel}
       barAction={!failed ? <RestoreButton toolCallId={toolCallId} /> : undefined}
     >

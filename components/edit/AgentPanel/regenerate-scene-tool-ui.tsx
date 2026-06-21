@@ -7,7 +7,7 @@
  * on the always-visible card row (ToolCard `barAction`): whole-slide regeneration
  * applies directly to the canvas, so revert is one tap — no Ctrl+Z, no expanding.
  */
-import { AlertCircle, Check, Loader2, Wrench } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { ToolCard, type ToolStatus } from './tool-card';
@@ -37,7 +37,6 @@ function RegenerateSceneCard({
 }) {
   const { t } = useI18n();
   const toolStatus: ToolStatus = running ? 'running' : failed ? 'failed' : 'done';
-  const statusIcon = running ? Loader2 : failed ? AlertCircle : Check;
   const statusLabel = running
     ? t('edit.regenScene.generating')
     : failed
@@ -52,7 +51,6 @@ function RegenerateSceneCard({
       icon={Wrench}
       sceneId={sceneId}
       status={toolStatus}
-      statusIcon={statusIcon}
       statusLabel={statusLabel}
       barAction={!failed ? <RestoreButton toolCallId={toolCallId} /> : undefined}
     >
