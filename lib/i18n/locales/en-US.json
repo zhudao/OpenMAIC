@@ -304,21 +304,17 @@
       "stop": "Stop generating",
       "empty": {
         "lead": "Tell me how to change this slide — I'll redo the content and re-align the narration.",
-        "boundary": "Add / delete / reorder slides from the left nav.",
+        "boundary": "For fine-grained edits use the editor; add / delete / reorder slides from the left nav.",
         "comingSoon": "More capabilities coming soon."
       },
       "cap": {
         "content": {
-          "label": "Edit content",
-          "examples": "“Condense to 3 bullet points” · “Add a real-world example”"
+          "label": "Regenerate the slide",
+          "examples": "“Condense to 3 points”, “Add a real-world example”"
         },
         "narration": {
-          "label": "Edit narration",
-          "examples": "“Make it more conversational” · “Match my canvas edits”"
-        },
-        "ask": {
-          "label": "Ask about this slide",
-          "examples": "“What's the key point here?”"
+          "label": "Regenerate the narration script",
+          "examples": "“Make it more conversational”, “Align with my canvas edits”"
         }
       }
     },

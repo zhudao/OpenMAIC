@@ -50,7 +50,6 @@ const DEFAULT_WIDTH = 384;
 const CAPABILITY_KEYS = [
   { label: 'edit.agent.cap.content.label', examples: 'edit.agent.cap.content.examples' },
   { label: 'edit.agent.cap.narration.label', examples: 'edit.agent.cap.narration.examples' },
-  { label: 'edit.agent.cap.ask.label', examples: 'edit.agent.cap.ask.examples' },
 ];
 
 function UserMessage() {
