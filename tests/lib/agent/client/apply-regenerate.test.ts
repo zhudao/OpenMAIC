@@ -52,6 +52,20 @@ describe('toRuntimeSlideContent', () => {
     expect(rt.canvas.viewportSize).toBe(1000);
     expect(rt.canvas.viewportRatio).toBe(0.5625);
     expect(rt.canvas.id).toBeTruthy();
+    expect(rt.canvas.schemaVersion).toBe(1);
+  });
+
+  it('keeps the existing background when the gen omits it (no wipe)', () => {
+    const genNoBg: GeneratedSlideContent = {
+      elements: [{ id: 'e_new', type: 'text', left: 0, top: 0, width: 1, height: 1 } as never],
+      background: undefined,
+      remark: '',
+    };
+    const existingCanvas = { id: 'cv', background: '#abc' };
+    const rt = toRuntimeSlideContent(genNoBg, existingCanvas) as unknown as {
+      canvas: Record<string, unknown>;
+    };
+    expect(rt.canvas.background).toBe('#abc');
   });
 });
 

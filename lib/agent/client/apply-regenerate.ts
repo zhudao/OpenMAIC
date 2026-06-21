@@ -11,6 +11,7 @@ import { nanoid } from 'nanoid';
 import type { Action } from '@/lib/types/action';
 import type { Scene, SceneContent } from '@/lib/types/stage';
 import type { GeneratedSlideContent } from '@/lib/types/generation';
+import { CURRENT_SLIDE_CONTENT_SCHEMA_VERSION } from '@/lib/edit/slide-schema';
 
 // Mirrors the default theme minted by createSceneWithActions for fresh slides.
 const DEFAULT_THEME = {
@@ -36,10 +37,17 @@ export function toRuntimeSlideContent(
     viewportSize: 1000,
     viewportRatio: 0.5625,
     theme: DEFAULT_THEME,
+    schemaVersion: CURRENT_SLIDE_CONTENT_SCHEMA_VERSION,
   };
   return {
     type: 'slide',
-    canvas: { ...base, elements: gen.elements, background: gen.background },
+    canvas: {
+      ...base,
+      elements: gen.elements,
+      // Only override background when defined — a regen that omits background
+      // must not wipe the scene's existing background.
+      ...(gen.background !== undefined ? { background: gen.background } : {}),
+    },
   } as unknown as SceneContent;
 }
 
@@ -68,13 +76,21 @@ export interface RegenerateApplyPlan {
 export function planRegenerateApply(
   details: RegenerateDetails,
   scene: Pick<Scene, 'content' | 'actions'> | null,
+  toolName?: string,
 ): RegenerateApplyPlan {
   const { sceneId } = details;
   if (!sceneId) return { snapshot: null, patch: null };
 
   const actions = Array.isArray(details.actions) ? details.actions : [];
 
-  if (details.content && Array.isArray(details.content.elements)) {
+  // Defensive: only `regenerate_scene` carries whole-slide content. When the
+  // tool name is known and is anything else, treat the result as actions-only
+  // (a non-regenerate tool that happens to echo a content-shaped payload must
+  // not clobber the slide). Undefined toolName keeps the legacy shape-based
+  // behaviour for back-compat.
+  const contentAllowed = toolName === undefined || toolName === 'regenerate_scene';
+
+  if (contentAllowed && details.content && Array.isArray(details.content.elements)) {
     const sceneContent = scene?.content as
       | { type?: string; canvas?: Record<string, unknown> }
       | undefined;
