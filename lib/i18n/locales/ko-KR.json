@@ -267,7 +267,8 @@
           "label": "내레이션 스크립트 다시 생성",
           "examples": "“좀 더 구어체로” “편집한 내용에 맞춰”"
         }
-      }
+      },
+      "newConversation": "새 대화"
     },
     "timeline": {
       "title": "내레이션 스크립트",

@@ -316,7 +316,8 @@
           "label": "重新生成讲解脚本",
           "examples": "“讲得更口语一些”、“和画布上的改动对齐”"
         }
-      }
+      },
+      "newConversation": "新对话"
     },
     "timeline": {
       "title": "讲解脚本",

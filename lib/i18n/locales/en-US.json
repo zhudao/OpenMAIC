@@ -316,7 +316,8 @@
           "label": "Regenerate the narration script",
           "examples": "“Make it more conversational”, “Align with my canvas edits”"
         }
-      }
+      },
+      "newConversation": "New conversation"
     },
     "timeline": {
       "title": "Narration script",

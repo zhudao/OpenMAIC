@@ -316,7 +316,8 @@
           "label": "重新生成講解腳本",
           "examples": "「講得更口語一些」、「和畫布上的改動對齊」"
         }
-      }
+      },
+      "newConversation": "新對話"
     },
     "timeline": {
       "title": "講解腳本",

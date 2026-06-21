@@ -32,7 +32,9 @@ import {
   PanelRightOpen,
   Sparkles,
   Square,
+  SquarePen,
 } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 import { useAgentRuntime } from '@/lib/agent/client/use-agent-runtime';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { SpeechButton } from '@/components/audio/speech-button';
@@ -121,7 +123,7 @@ function VoiceInputButton() {
 
 export function AgentPanel({ scene }: { scene?: { id: string; title: string } }) {
   const { t } = useI18n();
-  const runtime = useAgentRuntime({ scene });
+  const { runtime, clearThread, hasMessages } = useAgentRuntime({ scene });
 
   // Drag-to-resize from the left edge (pointer capture, direct DOM write).
   const railRef = useRef<HTMLElement>(null);
@@ -212,12 +214,26 @@ export function AgentPanel({ scene }: { scene?: { id: string; title: string } })
         <span className="text-[13px] font-semibold text-[#5b1fa8] dark:text-violet-300">
           Edit with AI
         </span>
+        {hasMessages ? (
+          <button
+            type="button"
+            onClick={clearThread}
+            title={t('edit.agent.newConversation')}
+            aria-label={t('edit.agent.newConversation')}
+            className="ml-auto grid size-7 place-items-center rounded-md text-muted-foreground/55 transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <SquarePen className="size-4" />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setCollapsed(true)}
           title={t('edit.agent.collapse')}
           aria-label={t('edit.agent.collapse')}
-          className="ml-auto grid size-7 place-items-center rounded-md text-muted-foreground/55 transition-colors hover:bg-muted hover:text-foreground"
+          className={cn(
+            'grid size-7 place-items-center rounded-md text-muted-foreground/55 transition-colors hover:bg-muted hover:text-foreground',
+            hasMessages ? '' : 'ml-auto',
+          )}
         >
           <PanelRightClose className="size-4" />
         </button>

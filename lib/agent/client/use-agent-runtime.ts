@@ -29,6 +29,8 @@ import { mergeAssistantParts, type PiPart } from './merge-assistant-parts';
 import { planRegenerateApply, type RegenerateDetails } from './apply-regenerate';
 import { applyScenePatchInSync } from './apply-slide-content';
 import { useRegenSnapshots } from './regen-snapshots';
+import { useAgentThreadStore } from './agent-thread-store';
+import { serializeThread, deserializeThread } from './serialize-thread';
 export type { AssistantPart, PiPart } from './merge-assistant-parts';
 
 interface PiAssistantContent {
@@ -106,6 +108,21 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  // Lightweight per-course persistence: one thread per stage, restored on mount
+  // and when the course changes, so a refresh no longer drops the conversation.
+  const stageId = useStageStore((s) => s.stage?.id);
+  useEffect(() => {
+    if (!stageId) return;
+    const saved = useAgentThreadStore.getState().load(stageId);
+    setMessages(deserializeThread(saved?.messages));
+  }, [stageId]);
+
+  const clearThread = useCallback(() => {
+    setMessages([]);
+    const sid = useStageStore.getState().stage?.id;
+    if (sid) useAgentThreadStore.getState().clear(sid);
+  }, []);
 
   // Per-run accumulated state: chronological turns + tool results.
   const turnsRef = useRef<PiPart[][]>([]);
@@ -335,11 +352,21 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
           abortRef.current = null;
           if (phaseRef.current === 'running') phaseRef.current = 'complete';
           setIsRunning(false);
+          let finalMessages: ThreadMessageLike[] = [];
           setMessages((prev) => {
             const next = prev.slice();
             next[next.length - 1] = buildAssistant(assistantId);
+            finalMessages = next;
             return next;
           });
+          // Persist the completed thread for this course (slim projection).
+          const sid = useStageStore.getState().stage?.id;
+          if (sid) {
+            useAgentThreadStore.getState().save(sid, {
+              messages: serializeThread(finalMessages),
+              updatedAt: Date.now(),
+            });
+          }
         }
       }
     },
@@ -354,11 +381,13 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
     setIsRunning(false);
   }, []);
 
-  return useExternalStoreRuntime({
+  const runtime = useExternalStoreRuntime({
     messages,
     isRunning,
     onNew,
     onCancel,
     convertMessage: (m) => m,
   });
+
+  return { runtime, clearThread, hasMessages: messages.length > 0 };
 }
