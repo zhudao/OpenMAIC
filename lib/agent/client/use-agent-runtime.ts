@@ -26,6 +26,8 @@ import { useStageStore } from '@/lib/store/stage';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import type { SceneContextMap } from '@/app/api/agent/edit/route';
 import { mergeAssistantParts, type PiPart } from './merge-assistant-parts';
+import { planRegenerateApply, type RegenerateDetails } from './apply-regenerate';
+import { useRegenSnapshots } from './regen-snapshots';
 export type { AssistantPart, PiPart } from './merge-assistant-parts';
 
 interface PiAssistantContent {
@@ -128,11 +130,17 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
           isError?: boolean;
         };
         toolResultsRef.current.set(e.toolCallId, { result: e.result, isError: !!e.isError });
-        const details = (e.result?.details ?? {}) as { sceneId?: string; actions?: unknown };
-        // Apply only non-empty actions — an empty array would destructively
-        // wipe the scene's existing narration on a failed generation.
-        if (details.sceneId && Array.isArray(details.actions) && details.actions.length > 0) {
-          useStageStore.getState().updateScene(details.sceneId, { actions: details.actions });
+        const details = (e.result?.details ?? {}) as RegenerateDetails;
+        // Decide what to apply: regenerate_scene applies content (+actions) and
+        // snapshots the pre-state for restore; regenerate_scene_actions applies
+        // actions only. Empty actions are never applied (would wipe narration).
+        const scene = details.sceneId
+          ? useStageStore.getState().getSceneById(details.sceneId)
+          : null;
+        const { snapshot, patch } = planRegenerateApply(details, scene);
+        if (snapshot) useRegenSnapshots.getState().setSnapshot(e.toolCallId, snapshot);
+        if (patch && details.sceneId) {
+          useStageStore.getState().updateScene(details.sceneId, patch);
         }
         refresh();
         break;

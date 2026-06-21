@@ -1,0 +1,98 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  toRuntimeSlideContent,
+  planRegenerateApply,
+} from '@/lib/agent/client/apply-regenerate';
+import type { GeneratedSlideContent } from '@/lib/types/generation';
+import type { Scene, SceneContent } from '@/lib/types/stage';
+
+const GEN: GeneratedSlideContent = {
+  elements: [{ id: 'e_new', type: 'text', left: 0, top: 0, width: 1, height: 1 } as never],
+  background: { type: 'solid', color: '#abcdef' } as never,
+  remark: '',
+};
+
+function slideScene(): Pick<Scene, 'content' | 'actions'> {
+  return {
+    content: {
+      type: 'slide',
+      canvas: {
+        id: 'existing-canvas',
+        viewportSize: 1234,
+        viewportRatio: 0.5625,
+        theme: { fontName: 'KeepMe' },
+        elements: [{ id: 'e_old' }],
+      },
+    } as unknown as SceneContent,
+    actions: [{ type: 'speech', id: 'a_old' } as never],
+  };
+}
+
+describe('toRuntimeSlideContent', () => {
+  it('preserves the existing canvas (id/viewport/theme) and overrides elements + background', () => {
+    const existingCanvas = { id: 'existing-canvas', viewportSize: 1234, theme: { fontName: 'KeepMe' } };
+    const rt = toRuntimeSlideContent(GEN, existingCanvas) as { type: string; canvas: Record<string, unknown> };
+    expect(rt.type).toBe('slide');
+    expect(rt.canvas.id).toBe('existing-canvas');
+    expect(rt.canvas.viewportSize).toBe(1234);
+    expect((rt.canvas.theme as { fontName: string }).fontName).toBe('KeepMe');
+    expect((rt.canvas.elements as { id: string }[])[0].id).toBe('e_new');
+    expect((rt.canvas.background as { color: string }).color).toBe('#abcdef');
+  });
+
+  it('mints a default canvas when the scene has none', () => {
+    const rt = toRuntimeSlideContent(GEN, undefined) as { canvas: Record<string, unknown> };
+    expect(rt.canvas.viewportSize).toBe(1000);
+    expect(rt.canvas.viewportRatio).toBe(0.5625);
+    expect(rt.canvas.id).toBeTruthy();
+  });
+});
+
+describe('planRegenerateApply', () => {
+  it('regenerate_scene: snapshots pre-state and applies converted content + actions', () => {
+    const scene = slideScene();
+    const plan = planRegenerateApply(
+      { sceneId: 's1', content: GEN, actions: [{ type: 'speech', id: 'a_new' } as never] },
+      scene,
+    );
+    // snapshot is the PRE-regenerate scene, for restore.
+    expect(plan.snapshot?.sceneId).toBe('s1');
+    expect((plan.snapshot?.actions[0] as { id: string }).id).toBe('a_old');
+    expect((plan.snapshot?.content as { canvas: { elements: { id: string }[] } }).canvas.elements[0].id).toBe('e_old');
+    // patch applies the new content + actions.
+    const patch = plan.patch as { content: { canvas: { elements: { id: string }[] } }; actions: { id: string }[] };
+    expect(patch.content.canvas.elements[0].id).toBe('e_new');
+    expect(patch.actions[0].id).toBe('a_new');
+  });
+
+  it('regenerate_scene with empty actions applies content but not actions (no wipe)', () => {
+    const plan = planRegenerateApply({ sceneId: 's1', content: GEN, actions: [] }, slideScene());
+    expect(plan.patch).toBeTruthy();
+    expect((plan.patch as Record<string, unknown>).content).toBeTruthy();
+    expect((plan.patch as Record<string, unknown>).actions).toBeUndefined();
+  });
+
+  it('regenerate_scene_actions: actions-only, no snapshot, no content', () => {
+    const plan = planRegenerateApply(
+      { sceneId: 's1', actions: [{ type: 'speech', id: 'a_new' } as never] },
+      slideScene(),
+    );
+    expect(plan.snapshot).toBeNull();
+    expect(plan.patch).toEqual({ actions: [{ type: 'speech', id: 'a_new' }] });
+  });
+
+  it('does nothing without a sceneId', () => {
+    expect(planRegenerateApply({ actions: [{ id: 'a' } as never] }, slideScene())).toEqual({
+      snapshot: null,
+      patch: null,
+    });
+  });
+
+  it('actions-only with empty actions is a no-op', () => {
+    expect(planRegenerateApply({ sceneId: 's1', actions: [] }, slideScene())).toEqual({
+      snapshot: null,
+      patch: null,
+    });
+  });
+});

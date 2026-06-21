@@ -1,0 +1,94 @@
+/**
+ * Pure apply logic for MAIC Agent tool results (client side).
+ *
+ * `regenerate_scene` returns generation-shaped slide content; the stage store
+ * holds runtime `SceneContent` ({ type:'slide', canvas: Slide }). This module
+ * converts between them (preserving the user's existing canvas) and decides
+ * what to apply + what to snapshot for the "restore previous" button — kept
+ * pure and side-effect-free so it can be unit-tested without React/Dexie.
+ */
+import { nanoid } from 'nanoid';
+import type { Action } from '@/lib/types/action';
+import type { Scene, SceneContent } from '@/lib/types/stage';
+import type { GeneratedSlideContent } from '@/lib/types/generation';
+
+// Mirrors the default theme minted by createSceneWithActions for fresh slides.
+const DEFAULT_THEME = {
+  backgroundColor: '#ffffff',
+  themeColors: ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4'],
+  fontColor: '#333333',
+  fontName: 'Microsoft YaHei',
+  outline: { color: '#d14424', width: 2, style: 'solid' },
+  shadow: { h: 0, v: 0, blur: 10, color: '#000000' },
+};
+
+/**
+ * Convert generated slide content to runtime SlideContent, preserving the
+ * scene's EXISTING canvas (id / viewport / theme) and overriding only the
+ * elements + background. Mints a default canvas only when the scene has none.
+ */
+export function toRuntimeSlideContent(
+  gen: GeneratedSlideContent,
+  existingCanvas?: Record<string, unknown>,
+): SceneContent {
+  const base =
+    existingCanvas ?? {
+      id: nanoid(),
+      viewportSize: 1000,
+      viewportRatio: 0.5625,
+      theme: DEFAULT_THEME,
+    };
+  return {
+    type: 'slide',
+    canvas: { ...base, elements: gen.elements, background: gen.background },
+  } as unknown as SceneContent;
+}
+
+export interface RegenerateDetails {
+  sceneId?: string;
+  /** Present for `regenerate_scene` (whole-slide); absent for actions-only. */
+  content?: GeneratedSlideContent | null;
+  actions?: Action[];
+}
+
+export interface RegenerateApplyPlan {
+  /** Pre-regenerate scene state to keep for restore (regenerate_scene only). */
+  snapshot: { sceneId: string; content: SceneContent; actions: Action[] } | null;
+  /** Partial scene update to apply, or null if nothing should change. */
+  patch: Partial<Scene> | null;
+}
+
+/**
+ * Decide how to apply a tool result.
+ * - `regenerate_scene` (content present): snapshot the current scene, then apply
+ *   the converted content plus actions (actions only when non-empty — an empty
+ *   array would wipe the narration).
+ * - `regenerate_scene_actions` (no content): apply actions only when non-empty;
+ *   no snapshot (unchanged v0 behaviour).
+ */
+export function planRegenerateApply(
+  details: RegenerateDetails,
+  scene: Pick<Scene, 'content' | 'actions'> | null,
+): RegenerateApplyPlan {
+  const { sceneId } = details;
+  if (!sceneId) return { snapshot: null, patch: null };
+
+  const actions = Array.isArray(details.actions) ? details.actions : [];
+
+  if (details.content && Array.isArray(details.content.elements)) {
+    const sceneContent = scene?.content as { type?: string; canvas?: Record<string, unknown> } | undefined;
+    const existingCanvas = sceneContent?.type === 'slide' ? sceneContent.canvas : undefined;
+    const runtime = toRuntimeSlideContent(details.content, existingCanvas);
+    const patch: Partial<Scene> = {
+      content: runtime,
+      ...(actions.length > 0 ? { actions } : {}),
+    };
+    const snapshot = scene
+      ? { sceneId, content: scene.content, actions: scene.actions ?? [] }
+      : null;
+    return { snapshot, patch };
+  }
+
+  if (actions.length > 0) return { snapshot: null, patch: { actions } };
+  return { snapshot: null, patch: null };
+}
