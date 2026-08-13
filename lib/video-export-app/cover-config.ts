@@ -7,6 +7,7 @@ import jaJP from '@/lib/i18n/locales/ja-JP.json';
 import koKR from '@/lib/i18n/locales/ko-KR.json';
 import ptBR from '@/lib/i18n/locales/pt-BR.json';
 import ruRU from '@/lib/i18n/locales/ru-RU.json';
+import viVN from '@/lib/i18n/locales/vi-VN.json';
 import zhCN from '@/lib/i18n/locales/zh-CN.json';
 import zhTW from '@/lib/i18n/locales/zh-TW.json';
 import type { VideoExportLabels, VideoExportCta } from '@/lib/video-export';
@@ -50,6 +51,7 @@ const LOCALE_RESOURCES: Record<Locale, Record<string, unknown>> = {
   'ko-KR': koKR,
   'es-MX': esMX,
   'fr-FR': frFR,
+  'vi-VN': viVN,
   'pt-BR': ptBR,
   'ru-RU': ruRU,
   'ar-SA': arSA,
@@ -189,6 +191,10 @@ export function getVideoExportCoverLabels(locale: Locale): VideoExportLabels {
     quiz: at('quiz.title'),
     questions: at('quiz.questionsCount'),
     points: at('quiz.pointsSuffix'),
+    singleChoice: at('quiz.singleChoice'),
+    multipleChoice: at('quiz.multipleChoice'),
+    shortAnswer: at('quiz.shortAnswer'),
+    answerPlaceholder: at('quiz.inputPlaceholder'),
     pbl: at('pbl.v2.hero.title'),
     stages: at('pbl.v2.hero.stage'),
     tasks: at('pbl.v2.hero.task'),
