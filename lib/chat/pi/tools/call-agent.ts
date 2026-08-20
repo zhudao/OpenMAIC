@@ -17,7 +17,7 @@ import type { AgentTurnSummary, WhiteboardActionRecord } from '@/lib/orchestrati
 import type { ThinkingConfig } from '@/lib/types/provider';
 import type { ChildRuntimeMode } from '../child-runtime';
 import type { DirectorSceneEvidenceMetadata } from './read-scene';
-import type { DirectorWebEvidenceMetadata } from './web-search';
+import { buildNativeWebSearchTool, type NativeWebSearchConfig } from './web-search';
 import type { ParsedAction, StatelessChatRequest } from '@/lib/types/chat';
 import {
   buildChildPrompt,
@@ -543,11 +543,11 @@ export function buildCallAgentTool(opts: {
   enableWhiteboardTools: boolean;
   childRuntimeMode?: ChildRuntimeMode;
   enableNativeChildSpotlight?: boolean;
+  nativeWebSearchConfig?: NativeWebSearchConfig;
   requestStartCurrentScene?: RequestStartCurrentScene;
   isUserCued?: () => boolean;
   isSessionClosed?: () => boolean;
   takeSceneEvidence?: () => RuntimeEvidenceAttachment<DirectorSceneEvidenceMetadata[]> | undefined;
-  takeWebEvidence?: () => RuntimeEvidenceAttachment<DirectorWebEvidenceMetadata> | undefined;
 }): AgentTool<typeof CallAgentParams> {
   // Loop-guard (model-agnostic): an empty/errored child turn used to bypass onAgentDone,
   // so the completed-turn count never advanced and the maxAgentTurns guard was defeated — a model
@@ -657,7 +657,6 @@ export function buildCallAgentTool(opts: {
       // Take it before starting/building the child so any downstream failure cannot
       // leak the packet to a later agent.
       const sceneEvidence = opts.takeSceneEvidence?.();
-      const webEvidence = opts.takeWebEvidence?.();
 
       const childAbort = new AbortController();
       const abortFromRequest = () => childAbort.abort(opts.abortSignal.reason);
@@ -723,16 +722,19 @@ export function buildCallAgentTool(opts: {
           agent.allowedActions.includes('spotlight') &&
           spotlightTargets.size > 0,
         );
-        const nativeTools = spotlightEnabled
-          ? [
-              buildNativeSpotlightTool({
-                agent,
-                messageId,
-                send: opts.send,
-                authorizedElementIds: spotlightTargets,
-              }),
-            ]
-          : [];
+        const nativeTools: AgentTool[] = [
+          ...(spotlightEnabled
+            ? [
+                buildNativeSpotlightTool({
+                  agent,
+                  messageId,
+                  send: opts.send,
+                  authorizedElementIds: spotlightTargets,
+                }),
+              ]
+            : []),
+          buildNativeWebSearchTool({ config: opts.nativeWebSearchConfig }),
+        ];
         const availableToolNames = nativeTools.map((tool) => tool.name);
         const sanitizeNativeDelta = createVisibleSpeechDeltaSanitizer();
         let nativeResult: Awaited<ReturnType<typeof runNativeChild>>;
@@ -754,7 +756,6 @@ export function buildCallAgentTool(opts: {
             ),
             prompt: buildNativeChildTurnPrompt(params.instruction, agent.role, {
               scene: sceneEvidence?.content,
-              web: webEvidence?.content,
               spotlightElementIds,
             }),
             tools: nativeTools,
@@ -762,7 +763,6 @@ export function buildCallAgentTool(opts: {
             history: toHistoryMessages(opts.body.messages),
             abortSignal: childAbort.signal,
             timeoutMs: 60_000,
-            maxToolCallAttempts: 4,
             maxProviderTransports: 5,
             onVisibleTextDelta: async (delta) => {
               const visibleDelta = sanitizeNativeDelta(delta);
@@ -811,7 +811,6 @@ export function buildCallAgentTool(opts: {
             availableToolNames,
             nativeChildRun: nativeResult,
             ...(sceneEvidence ? { sceneEvidence: sceneEvidence.metadata } : {}),
-            ...(webEvidence ? { webEvidence: webEvidence.metadata } : {}),
           },
           ...(isCompleted ? {} : { isError: true }),
         };
@@ -877,7 +876,6 @@ export function buildCallAgentTool(opts: {
         await child.prompt(
           buildChildTurnPrompt(params.instruction, agent.role, {
             scene: sceneEvidence?.content,
-            web: webEvidence?.content,
           }),
         );
         await child.waitForIdle();
@@ -954,7 +952,6 @@ export function buildCallAgentTool(opts: {
           text: finalText,
           actionWarnings,
           ...(sceneEvidence ? { sceneEvidence: sceneEvidence.metadata } : {}),
-          ...(webEvidence ? { webEvidence: webEvidence.metadata } : {}),
         },
       };
     },
