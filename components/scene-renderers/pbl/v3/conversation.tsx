@@ -189,6 +189,7 @@ function ConversationEntry({
   ) : entry.speaker === 'user' ? (
     <UserBubble
       key={entry.id}
+      tone="primary"
       text={entry.parts.flatMap((p) => (p.kind === 'text' ? [p.text] : [])).join('\n')}
     />
   ) : (
@@ -257,6 +258,7 @@ export function LearningConversation({
       <ConversationHistory
         id={view.id}
         sources={view.conversationHistory ?? []}
+        milestones={view.milestones}
         renderEntry={(entry, dismiss) => (
           <div onClick={(event) => openReference(event, dismiss)}>
             <ConversationEntry
