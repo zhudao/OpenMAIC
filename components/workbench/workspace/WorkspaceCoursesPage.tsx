@@ -130,6 +130,7 @@ import {
   parsePins,
   pinItem,
   pinnedIds,
+  prunableKinds,
   prunePins,
   serializePins,
   unpinItem,
@@ -426,12 +427,22 @@ export function WorkspaceCoursesPage({
     [courses.classrooms, libraryFolders, libraryOrder, pins],
   );
   const orderedKeys = useMemo(() => ordered.map((entry) => entry.id), [ordered]);
-  // A deleted item's pin goes with it — only once the list is authoritative,
-  // never against the empty list of a first load.
+  // A deleted item's pin goes with it — only once the lists are authoritative:
+  // never against the empty list of a first load, never while the other list
+  // is still in flight (courses and folders land in either order), and never
+  // for a kind whose list failed to load.
+  const pruneKinds = useMemo(
+    () =>
+      prunableKinds({
+        course: courses.state,
+        folder: foldersAvailable ? courses.foldersState : null,
+      }),
+    [courses.state, courses.foldersState, foldersAvailable],
+  );
   useEffect(() => {
-    if (courses.state !== 'ready') return;
-    updatePins((current) => prunePins(current, orderedKeys));
-  }, [courses.state, orderedKeys, updatePins]);
+    if (!pruneKinds) return;
+    updatePins((current) => prunePins(current, orderedKeys, pruneKinds));
+  }, [orderedKeys, pruneKinds, updatePins]);
   const pinned = useMemo(() => new Set(pinnedIds(pins, orderedKeys)), [orderedKeys, pins]);
   const togglePin = (key: string) =>
     updatePins((current) => (pinned.has(key) ? unpinItem(current, key) : pinItem(current, key)));
@@ -664,11 +675,8 @@ export function WorkspaceCoursesPage({
       className="ws-canvas ws-page relative flex min-w-0 flex-1 flex-col overflow-y-auto"
     >
       <div className="mx-auto w-full max-w-[1120px] px-6 pb-16 pt-10 lg:px-10">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="ws-page-title">{t('workspace.nav.myCourses')}</h1>
-            <p className="ws-page-sub">{t('workspace.coursesPage.subtitle')}</p>
-          </div>
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="ws-page-title min-w-0">{t('workspace.nav.myCourses')}</h1>
           <div className="flex items-center gap-2">
             <label className="ws-page-search">
               <Search className="size-4 shrink-0" aria-hidden="true" />
