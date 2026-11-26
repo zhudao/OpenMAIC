@@ -29,8 +29,11 @@ import { Readable } from 'node:stream';
 import { serve } from '@hono/node-server';
 import { validateScene } from '@openmaic/dsl';
 import { Hono, type Context } from 'hono';
+import { postProcessInteractiveHtml } from '../../packages/@openmaic/generation/src/interactive-post-processor.js';
 import { config } from './config.js';
+import { hostedInteractiveLibraries } from './hosted-interactive-libraries.js';
 import { InMemoryJobStore } from './job-store.js';
+import { ShutdownGate } from './shutdown-gate.js';
 import { LocalDiskArtifactStore } from './artifact-store.js';
 import {
   RenderCoordinator,
@@ -327,6 +330,7 @@ export function createApp(deps: AppDeps): Hono {
       interactiveRuntimeCheck:
         !deps.resourceMode &&
         Boolean(process.env.PRODUCER_HEADLESS_SHELL_PATH || process.env.PUPPETEER_EXECUTABLE_PATH),
+      interactiveRuntimeHostedLibraries: true,
       resourceProfile: publicResourceProfile(config.resourceProfile),
       versions: deps.runtimeVersions ?? null,
     }),
@@ -526,7 +530,19 @@ export function createApp(deps: AppDeps): Hono {
       if (runtimeCheck && !checkScene) {
         throw new BadRequestError('Runtime checks require an interactive scene');
       }
-      const unpreviewable = previewabilityError(payload.scene);
+      if (checkScene?.content.html?.trim()) {
+        // Playback processes stored scene HTML. Validate the resulting hosted
+        // references under the same request admission and deadline.
+        signal.throwIfAborted();
+        checkScene.content.html = postProcessInteractiveHtml(checkScene.content.html);
+        if (performance.now() >= expiresAt) {
+          throw new PreviewTimeoutError('Preview exceeded the deadline');
+        }
+      }
+      const unpreviewable = previewabilityError(
+        payload.scene,
+        checkScene ? (url) => hostedInteractiveLibraries.match(url) !== undefined : undefined,
+      );
       if (unpreviewable) throw new UnprocessablePreviewError(unpreviewable);
       const remainingMs = Math.ceil(expiresAt - performance.now());
       if (remainingMs <= 0) throw new PreviewTimeoutError('Preview exceeded the deadline');
@@ -725,19 +741,42 @@ export async function startService(resourceExecutor?: RenderExecutor): Promise<v
           }
         : {}),
     });
-  // Assigned after `jobs` so its reap callback can close over the coordinator.
+  // Assigned after `jobs` so its reap callback can close over them.
   // eslint-disable-next-line prefer-const
   let coordinator: RenderCoordinator;
+  // eslint-disable-next-line prefer-const
+  let shutdown: ShutdownGate;
   const jobs = new InMemoryJobStore(config.jobTtlMs, (record) => {
     // A reaped job's artifact + project dir go with it.
     void artifacts.remove(record.id);
     void coordinator.cleanupProject(record.projectDir);
+    shutdown.forget(record.id);
   });
   coordinator = new RenderCoordinator(executor, jobs, artifacts);
+  shutdown = new ShutdownGate(jobs, () => process.exit(0));
+
+  // On SIGTERM, stop admitting: `/health` reports `accepting: false`, so a
+  // caller that checks it before sending a render (the app's durable export
+  // queue) sends nothing more here. The process exits once nothing is left
+  // (src/shutdown-gate.ts): no render, no upload still answering, and no
+  // finished output not yet fetched. Now if that is already so, as before
+  // this handler existed. Nothing extends the platform's grace period: a
+  // render still running when it ends is killed with the process, and that
+  // caller sends it again. The resource entrypoint has its own SIGTERM
+  // handler, which closes the resource owner and exits.
+  process.once('SIGTERM', () => {
+    coordinator.closeAdmission(resourceExecutor ? undefined : () => shutdown.idle());
+  });
 
   // Build the browser mount off the request path so the first preview does not
   // pay the cold esbuild cost while holding admission and execution permits.
-  if (!resourceExecutor) await buildSlideClientBundle();
+  if (!resourceExecutor) {
+    const libraryDirectory = await stat(config.interactiveLibraryDir).catch(() => null);
+    if (!libraryDirectory?.isDirectory()) {
+      console.warn('[render-service] Interactive library directory is unavailable.');
+    }
+    await buildSlideClientBundle();
+  }
 
   const app = createApp({
     jobs,
@@ -755,7 +794,9 @@ export async function startService(resourceExecutor?: RenderExecutor): Promise<v
   // makeProjectDir() would ENOENT. mktemp still creates a fresh subdir per job.
   await mkdir(config.tmpDir, { recursive: true }).catch(() => {});
 
-  serve({ fetch: app.fetch, port: config.port }, (info) => {
+  const fetchRequest = resourceExecutor ? app.fetch : shutdown.wrap(app.fetch);
+
+  serve({ fetch: fetchRequest, port: config.port }, (info) => {
     console.log(
       `[render-service] listening on :${info.port} ` +
         `(resourceProfile=${config.resourceProfile.name}, ` +

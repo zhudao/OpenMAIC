@@ -131,6 +131,13 @@ const SHIPPED: readonly (readonly [
     '69c2f4cfe961b9f95f745e7cd412426d5d42a365ee57aebd8d56209c6739b6d1',
   ],
   [
+    'asset',
+    5,
+    'prefixed_bytes',
+    true,
+    '90d1d22db8fb40c0e0d7f745a1083e24b8c9418405cf5e33c663a633f53fa016',
+  ],
+  [
     'legacy-classroom-imports',
     1,
     'baseline',
@@ -402,6 +409,20 @@ const SHIPPED: readonly (readonly [
     'workbench-guide-completion',
     true,
     'c71e6f11af3f4185aeb490b762d9a2b6ccb88e7cbd5c5251254500aac46e08c9',
+  ],
+  [
+    'pbl-v3',
+    12,
+    'retire-reset-studies',
+    true,
+    '7474a8e5b2a047c8bbfd29af4c92ac04f3814cd910a57b1d6c9b4cdbb082fe0d',
+  ],
+  [
+    'render-jobs',
+    1,
+    'baseline',
+    false,
+    'a41e539f575c30beb0276d7479acd37664490f51d5bed0b95c181dfaae6d33c0',
   ],
 ];
 

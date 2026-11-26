@@ -69,6 +69,8 @@ JSON body `{ error, reason }` where `reason` is one of:
   `RENDER_MAX_JOBS_PER_USER` active renders.
 - `resource_unavailable` — the opt-in resource owner is unavailable or admission
   is closed; operator investigation is required before resuming submissions.
+- `shutting_down` — the process received `SIGTERM` and admits no more renders;
+  send the render to another instance or retry after the restart.
 
 `POST /preview` also answers `429` with `{ error, reason }`, where `reason` is
 one of:
@@ -99,6 +101,37 @@ data. Identity keys are client IPs when the service runs behind
 `TRUST_PROXY_HEADERS=true`, so exposing the per-identity map would publish the
 IP address of everyone currently rendering.
 
+On `SIGTERM` the service stops admitting renders: `/health` reports
+`accepting: false` from then on and new submissions get `shutting_down`. The
+process exits once nothing is reserved, queued or running, no upload is still
+being answered, and every finished render's MP4 has been downloaded once in
+full (the whole response written while the connection stayed open; a client
+that disconnects mid-download does not count): right away when that is already
+so, else as soon as it is. Jobs and their MP4s live only in this process, so a
+caller that fetches the output after polling for it (the app's durable export
+queue) gets a render that finished during the grace period. An MP4 nobody
+fetches keeps the process up until the grace period ends, or until the job
+expires (`RENDER_JOB_TTL_MS`). Nothing extends that period: a render still
+running when it ends is killed with the process, so a caller that resubmits
+lost renders sends it again elsewhere.
+
+Give the platform's termination grace period (Kubernetes
+`terminationGracePeriodSeconds`, Compose `stop_grace_period`) room for the
+longest render (`RENDER_JOB_DEADLINE_MS`, 45 minutes by default), one poll
+interval of the durable queue (5 s) and the MP4 download: with the defaults,
+`terminationGracePeriodSeconds: 2760` (46 minutes). A shorter period is still
+correct, only wasteful: a render it cuts off is rendered again.
+
+Known limitations of the exit condition:
+
+- One complete download counts for the job. If two downloads of the same job
+  run at once, the process can exit when the first completes and cut the
+  other off.
+- A download counts once its response is written. If the caller then fails to
+  store the MP4 (for the durable queue, a failed database or object-store
+  write after a complete fetch), its retry finds the process gone and the job
+  is rendered again.
+
 Previews have their own execution budget, defaulting to one concurrent preview,
 independent of the video render queue. Once a preview has passed its body and
 semantic checks, it renders immediately or fails with `capacity_busy`. Each
@@ -117,20 +150,31 @@ CSS `@import`) may pass validation; self-contained scenes are the caller's
 responsibility, and end-to-end fidelity for persisted scenes arrives with
 caller-side preparation (tracked separately).
 
-`POST /interactive-runtime-check` uses the same self-contained iframe,
-admission limits, and Chromium execution slots as the PNG preview. A check
-waits in FIFO order for a slot for up to `RENDER_INTERACTIVE_RUNTIME_WAIT_MS`
+`POST /interactive-runtime-check` applies playback's HTML post-processing before
+validating resource references and running the scene in a sandboxed iframe.
+Chromium loads pinned hosted-library files from the render service through
+request interception. The default URL prefix is
+`/vendor/interactive/`. A deployment using a mirror must set
+`INTERACTIVE_ASSET_BASE_URL` to the same value in the app build and the render
+service. Both prefixes resolve to local files. Other network requests from the
+iframe remain blocked.
+
+The route shares the PNG preview's admission limits and Chromium execution
+slots. A check waits in FIFO order for a slot for up to `RENDER_INTERACTIVE_RUNTIME_WAIT_MS`
 (default 2000 ms). It returns `429` with `reason: capacity_busy` if the wait
 expires first, or `504` if the overall deadline expires first. The overall
 deadline covers parsing, waiting, and Chromium work and is the smaller of
 five seconds and `RENDER_PREVIEW_TIMEOUT_MS`, followed by bounded Chromium
 cleanup. A client disconnect cancels the wait.
-The response is `{ errors: [...] }`, with each uncaught exception or unhandled
-rejection labeled `phase: "load"` or `phase: "action"`. Action errors include
-the zero-based `actionIndex` in `scene.actions` and the posted `actionType`.
+The response is `{ errors: [...] }`, with uncaught exceptions, unhandled
+rejections, and failed hosted-library loads labeled `phase: "load"` or
+`phase: "action"`. Action errors include the zero-based `actionIndex` in
+`scene.actions` and the posted `actionType`.
 The check loads the page and replays widget messages in order with a short
 observation window after each. `/health` advertises `interactiveRuntimeCheck`
-when Chromium is configured and per-task resource mode is off. The
+when Chromium is configured and per-task resource mode is off, and
+`interactiveRuntimeHostedLibraries` indicates support for raw HTML with hosted
+libraries. The app requires both flags. The
 `preview_request` log includes `runtimeCheckResult` for this route. `checked`
 includes pages with reported runtime errors. The other codes are `busy_timeout`,
 `deadline`, `aborted`, and `error` (including admission or validation failures).
@@ -149,6 +193,8 @@ includes pages with reported runtime errors. The other codes are `busy_timeout`,
 | `RENDER_JOB_DEADLINE_MS`                 | `2700000`                                      | Hard per-job wall-clock deadline; overruns are aborted and marked **failed**.                                                                                                                                                                     |
 | `RENDER_PREVIEW_TIMEOUT_MS`              | `20000`                                        | Deadline for preview work, including body parsing; launch settlement and bounded browser cleanup complete before the slot is reused.                                                                                                                                                  |
 | `RENDER_INTERACTIVE_RUNTIME_WAIT_MS`     | `2000`                                         | Maximum runtime-check wait for a preview execution slot, in milliseconds. The overall deadline can end the wait sooner. |
+| `RENDER_INTERACTIVE_LIBRARY_DIR`        | Repository `public/vendor/interactive` (`/app/public/vendor/interactive` in the image) | Directory containing the pinned interactive library files. If missing, the service logs a startup warning and checks report failed library loads. |
+| `INTERACTIVE_ASSET_BASE_URL`            | `/vendor/interactive`                          | URL base for the app's hosted interactive libraries. Match the app's build-time value when using a mirror. |
 | `RENDER_PREVIEW_MAX_CONCURRENCY`         | `1`                                            | Maximum executing previews, independent of video exports. At most 2 in `standard`, 1 in `low-memory`; exceeding the profile limit fails startup. Each slot can launch one Chromium browser.                                                                         |
 | `RENDER_PREVIEW_MAX_IN_FLIGHT`           | `8`                                            | Maximum admitted previews across buffering and execution.                                                                                                                                                                                         |
 | `RENDER_PREVIEW_MAX_PER_USER`            | `2`                                            | Concurrent previews per owner identity; 0 disables the guard for deployments whose preview callers do not supply an owner identity (see note below).                                                                                              |
@@ -263,6 +309,14 @@ profile and points the app at it:
 docker compose --profile video-export up --build
 ```
 
+To build only the render image, run
+`docker build -f render-service/Dockerfile -t openmaic-render-service .` from
+the repository root. Its asset stage installs the versions in the app's
+interactive library manifest and runs `scripts/sync-interactive-assets.mjs`.
+For standalone development, run `pnpm install` at the repository root to
+populate the same files, or point `RENDER_INTERACTIVE_LIBRARY_DIR` at a copy
+with the same package/version layout.
+
 ### Standalone (development)
 
 Requires Node 22, Chromium's old headless shell, and FFmpeg on `PATH`. The
@@ -372,6 +426,19 @@ runtime versions, bounds chunk fan-out and nested producer workers, verifies
 chunk bytes and sidecar hashes before ordered assembly, and reuses only a valid
 result for an idempotent retry. The default remains the in-process executor.
 
+Chunk planning resolves fonts the same way for every chunk, so a font missing
+from the export ZIP never fails the render. Families with an `@font-face` in
+the ZIP use it, families that Producer bundles or aliases (Inter, Roboto,
+Calibri and the rest of its alias map) are embedded from the bundled faces,
+and any other family falls back through the authored font stack in Chromium.
+Producer looks families up on Google Fonts. Once the entrypoint has installed
+the egress lockdown, the service answers those lookups locally instead of
+waiting on dropped connections, and logs the families left without a face once
+per job as a `render_font_fallback` warning. The entrypoint signals the
+lockdown by exporting `RENDER_EGRESS_LOCKDOWN_ACTIVE`; it is internal, not an
+operator setting. With egress open, Producer downloads fonts as it does on the
+in-process render path.
+
 [`@hyperframes/producer`]: https://www.npmjs.com/package/@hyperframes/producer
 
 ### Experimental per-task resource budgets
@@ -403,7 +470,10 @@ Start this mode with `npm run start:resources -- /etc/openmaic/resource.json`;
 [`resource-config.example.json`](resource-config.example.json) documents the
 root-owned state directory, fixed tool paths and per-task budget. Provision the
 official alias from the lockfile with browser download disabled when a managed
-browser is already installed (for example, `PUPPETEER_SKIP_DOWNLOAD=true npm ci`).
+browser is already installed (for example, `PUPPETEER_SKIP_DOWNLOAD=true npm ci`
+in `render-service`). If only the service dependencies are installed, run
+`ln -s render-service/node_modules node_modules` from the repository root so the
+shared generation source can resolve them.
 The config file, state directory, browser, FFmpeg and installed service code are
 trusted deployment inputs and must not be writable by the HTTP worker. Each
 project directory must be exclusively owned by that worker for the duration of
