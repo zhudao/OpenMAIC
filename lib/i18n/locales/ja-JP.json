@@ -2103,7 +2103,7 @@
     "resetConfirmDescription": "すべてのカスタムモデルが削除され、組み込みのデフォルトモデルリストに復元されます。APIキーとベースURLは保持されます。",
     "resetToDefault": "デフォルトに戻す",
     "saveModel": "保存",
-    "searxngServerOnlyNotice": "SearXNG はサーバー側で設定する必要があります。SEARXNG_BASE_URL 環境変数（または server-providers.yml の web-search セクション）を設定してください。クライアントからのインスタンス URL は受け付けません。",
+    "searxngServerOnlyNotice": "openmaic.yml で preset: searxng と baseUrl を指定してプロバイダーを宣言し、その ID を slots.webSearch に設定します。",
     "serverConfigured": "サーバー",
     "serverConfiguredNotice": "このプロバイダーはサーバーで管理されており、ここでは編集できません。",
     "startRecording": "録音を開始",
@@ -3170,6 +3170,7 @@
       "currentMilestone": "現在の段階",
       "milestoneGoal": "目標：",
       "milestoneResult": "成果：",
+      "acceptedResponse": "ありがとう。このステップで確認したかったことが整理できました。",
       "completionHandoff": "This step is complete.",
       "startConversation": "Your assistant will open this step when the learning environment is ready.",
       "latest": "Go to the latest message",
@@ -3178,7 +3179,7 @@
       "fullscreenUnavailable": "Fullscreen is unavailable. You can continue in the classroom layout.",
       "currentTask": "Current learning step",
       "collectResult": "Collect the execution result before continuing.",
-      "ready": "This step is ready. Choose “{{action}}” when you are ready to move on.",
+      "ready": "This step is ready. The “{{action}}” button is now available.",
       "followStep": "Follow the current step below. The assistant may need your answer or confirmation.",
       "steps": {
         "intro": "Project introduction",
@@ -3313,6 +3314,12 @@
     },
     "recoverEnvironment": "Restore learning environment",
     "retryOpening": "Retry step opening",
+    "completion": {
+      "title": "おめでとうございます！プロジェクトが完了しました。",
+      "description": "学習レポートで、自分が選んだことや完成した作品を振り返れます。",
+      "openReport": "学習レポートを見る",
+      "stay": "ワークスペースに残る"
+    },
     "reportCopy": {
       "waitFinal": "Wait for the final teaching response to finish before preparing the report.",
       "generating": "Preparing your project report…",
@@ -3449,6 +3456,7 @@
     },
     "decisionResponse": "Your decision",
     "decisionRationale": "Why did you choose this?",
+    "decisionRationaleInput": "Why did you choose this?",
     "submitDecision": "Submit decision",
     "decisionSaved": "Response saved",
     "decisionUnsaved": "Unsaved changes",

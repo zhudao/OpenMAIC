@@ -2103,7 +2103,7 @@
     "resetConfirmDescription": "此作業將清除所有自訂模型，恢復到內建的預設模型清單。API 密鑰和 Base URL 將被保留。",
     "resetToDefault": "重設為預設設定",
     "saveModel": "儲存",
-    "searxngServerOnlyNotice": "SearXNG 須由伺服器端設定。請設定 SEARXNG_BASE_URL 環境變數（或在 server-providers.yml 的 web-search 區段中設定）。不接受用戶端自行填寫實例位址。",
+    "searxngServerOnlyNotice": "在 openmaic.yml 中宣告供應商，設定 preset: searxng 和 baseUrl，再將供應商 ID 填入 slots.webSearch。",
     "serverConfigured": "服務端",
     "serverConfiguredNotice": "此供應商由伺服器端管理，無法在此編輯。",
     "startRecording": "開始錄音",
@@ -3170,6 +3170,7 @@
       "currentMilestone": "目前階段",
       "milestoneGoal": "目標：",
       "milestoneResult": "成果：",
+      "acceptedResponse": "謝謝，這一步需要確認的內容已經說清楚了。",
       "completionHandoff": "本環節已完成。",
       "startConversation": "Your assistant will open this step when the learning environment is ready.",
       "latest": "Go to the latest message",
@@ -3178,7 +3179,7 @@
       "fullscreenUnavailable": "Fullscreen is unavailable. You can continue in the classroom layout.",
       "currentTask": "Current learning step",
       "collectResult": "Collect the execution result before continuing.",
-      "ready": "本環節已就緒，準備好後點擊「{{action}}」。",
+      "ready": "本環節已就緒，「{{action}}」按鈕已可用。",
       "followStep": "Follow the current step below. The assistant may need your answer or confirmation.",
       "steps": {
         "intro": "Project introduction",
@@ -3313,6 +3314,12 @@
     },
     "recoverEnvironment": "恢復學習環境",
     "retryOpening": "重試本環節開場",
+    "completion": {
+      "title": "恭喜你，完成了這個專案！",
+      "description": "在學習報告裡，回顧你做過的決策與完成的作品。",
+      "openReport": "查看學習報告",
+      "stay": "留在工作台"
+    },
     "reportCopy": {
       "waitFinal": "最後一輪復盤回覆儲存完成後，即可產生報告。",
       "generating": "Preparing your project report…",
@@ -3447,8 +3454,9 @@
       "failed": "歷史記錄載入失敗，請重試。",
       "empty": "本頁暫無對話內容。"
     },
-    "decisionResponse": "你的決策",
+    "decisionResponse": "決策",
     "decisionRationale": "為什麼這樣決定？",
+    "decisionRationaleInput": "理由",
     "submitDecision": "提交決策",
     "decisionSaved": "回答已儲存",
     "decisionUnsaved": "修改尚未提交",

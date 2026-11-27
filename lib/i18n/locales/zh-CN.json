@@ -2103,7 +2103,7 @@
     "resetConfirmDescription": "此操作将清除所有自定义模型，恢复到内置的默认模型列表。API 密钥和 Base URL 将被保留。",
     "resetToDefault": "重置为默认配置",
     "saveModel": "保存",
-    "searxngServerOnlyNotice": "SearXNG 须由服务端配置。请设置 SEARXNG_BASE_URL 环境变量（或在 server-providers.yml 的 web-search 段中配置）。不接受客户端自行填写实例地址。",
+    "searxngServerOnlyNotice": "在 openmaic.yml 中声明服务商，设置 preset: searxng 和 baseUrl，再把服务商 ID 填入 slots.webSearch。",
     "serverConfigured": "服务端",
     "serverConfiguredNotice": "此提供方由服务端托管，无法在此修改。",
     "startRecording": "开始录音",
@@ -3170,6 +3170,7 @@
       "currentMilestone": "当前阶段",
       "milestoneGoal": "目标：",
       "milestoneResult": "成果：",
+      "acceptedResponse": "谢谢，这一步需要确认的内容已经说清楚了。",
       "completionHandoff": "本环节已完成。",
       "startConversation": "学习环境就绪后，助手会主动开始当前环节。",
       "latest": "回到最新消息",
@@ -3178,7 +3179,7 @@
       "fullscreenUnavailable": "暂时无法全屏，可以继续在课堂内学习。",
       "currentTask": "当前学习环节",
       "collectResult": "请先收集执行结果，再继续学习。",
-      "ready": "本环节已就绪，准备好后点击“{{action}}”。",
+      "ready": "本环节已就绪，“{{action}}”按钮已可用。",
       "followStep": "按下方要求完成当前环节；助手可能正在等待你的回答或确认。",
       "steps": {
         "intro": "项目介绍",
@@ -3313,6 +3314,12 @@
     },
     "recoverEnvironment": "恢复学习环境",
     "retryOpening": "重试本环节开场",
+    "completion": {
+      "title": "恭喜你，完成了这个项目！",
+      "description": "在学习报告里，回看你做过的决策和完成的作品。",
+      "openReport": "查看学习报告",
+      "stay": "留在工作台"
+    },
     "reportCopy": {
       "waitFinal": "最后一轮复盘回复保存完成后，即可生成报告。",
       "generating": "正在依据项目过程生成报告…",
@@ -3447,8 +3454,9 @@
       "failed": "历史记录加载失败，请重试。",
       "empty": "本页暂无对话内容。"
     },
-    "decisionResponse": "你的决策",
+    "decisionResponse": "决策",
     "decisionRationale": "为什么这样决定？",
+    "decisionRationaleInput": "理由",
     "submitDecision": "提交决策",
     "decisionSaved": "回答已保存",
     "decisionUnsaved": "修改尚未提交",

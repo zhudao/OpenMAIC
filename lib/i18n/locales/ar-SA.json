@@ -2103,7 +2103,7 @@
     "resetConfirmDescription": "سيؤدي هذا إلى إزالة جميع النماذج المخصصة واستعادة قائمة النماذج الافتراضية المُدمجة. سيتم الاحتفاظ بمفتاح API والعنوان الأساسي.",
     "resetToDefault": "إعادة التعيين للافتراضي",
     "saveModel": "حفظ",
-    "searxngServerOnlyNotice": "يجب تكوين SearXNG على الخادم. عيّن متغير البيئة SEARXNG_BASE_URL (أو قسم web-search في server-providers.yml). لا يُقبل عناوين URL للمثيلات المقدمة من العميل.",
+    "searxngServerOnlyNotice": "في openmaic.yml، عرّف مزوّدًا باستخدام preset: searxng وحدّد baseUrl، ثم أسند معرّفه إلى slots.webSearch.",
     "serverConfigured": "الخادم",
     "serverConfiguredNotice": "تتم إدارة هذا المزوّد من قبل الخادم ولا يمكن تعديله هنا.",
     "startRecording": "بدء التسجيل",
@@ -3170,6 +3170,7 @@
       "currentMilestone": "المرحلة الحالية",
       "milestoneGoal": "الهدف:",
       "milestoneResult": "النتيجة:",
+      "acceptedResponse": "شكرًا، وضّحنا ما نحتاج إليه في هذه الخطوة.",
       "completionHandoff": "This step is complete.",
       "startConversation": "Your assistant will open this step when the learning environment is ready.",
       "latest": "Go to the latest message",
@@ -3178,7 +3179,7 @@
       "fullscreenUnavailable": "Fullscreen is unavailable. You can continue in the classroom layout.",
       "currentTask": "Current learning step",
       "collectResult": "Collect the execution result before continuing.",
-      "ready": "This step is ready. Choose “{{action}}” when you are ready to move on.",
+      "ready": "This step is ready. The “{{action}}” button is now available.",
       "followStep": "Follow the current step below. The assistant may need your answer or confirmation.",
       "steps": {
         "intro": "Project introduction",
@@ -3313,6 +3314,12 @@
     },
     "recoverEnvironment": "Restore learning environment",
     "retryOpening": "Retry step opening",
+    "completion": {
+      "title": "تهانينا، لقد أكملت المشروع!",
+      "description": "راجع القرارات التي اتخذتها وما أنجزته في تقرير التعلّم.",
+      "openReport": "عرض تقرير التعلّم",
+      "stay": "البقاء في مساحة العمل"
+    },
     "reportCopy": {
       "waitFinal": "Wait for the final teaching response to finish before preparing the report.",
       "generating": "Preparing your project report…",
@@ -3449,6 +3456,7 @@
     },
     "decisionResponse": "Your decision",
     "decisionRationale": "Why did you choose this?",
+    "decisionRationaleInput": "Why did you choose this?",
     "submitDecision": "Submit decision",
     "decisionSaved": "Response saved",
     "decisionUnsaved": "Unsaved changes",

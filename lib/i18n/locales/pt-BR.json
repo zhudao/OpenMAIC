@@ -2103,7 +2103,7 @@
     "resetConfirmDescription": "Isto removerá todos os modelos personalizados e restaurará a lista padrão. Chave de API e URL base serão preservadas.",
     "resetToDefault": "Restaurar Padrão",
     "saveModel": "Salvar",
-    "searxngServerOnlyNotice": "O SearXNG deve ser configurado no servidor. Defina a variável de ambiente SEARXNG_BASE_URL (ou a seção web-search em server-providers.yml). URLs de instância fornecidas pelo cliente não são aceitas.",
+    "searxngServerOnlyNotice": "Em openmaic.yml, declare um provedor com preset: searxng e sua baseUrl. Atribua o ID do provedor a slots.webSearch.",
     "serverConfigured": "Servidor",
     "serverConfiguredNotice": "Este provedor é gerenciado pelo servidor e não pode ser editado aqui.",
     "startRecording": "Iniciar Gravação",
@@ -3170,6 +3170,7 @@
       "currentMilestone": "Etapa atual",
       "milestoneGoal": "Objetivo:",
       "milestoneResult": "Resultado:",
+      "acceptedResponse": "Obrigado, já esclarecemos o que precisávamos nesta etapa.",
       "completionHandoff": "This step is complete.",
       "startConversation": "Your assistant will open this step when the learning environment is ready.",
       "latest": "Go to the latest message",
@@ -3178,7 +3179,7 @@
       "fullscreenUnavailable": "Fullscreen is unavailable. You can continue in the classroom layout.",
       "currentTask": "Current learning step",
       "collectResult": "Collect the execution result before continuing.",
-      "ready": "This step is ready. Choose “{{action}}” when you are ready to move on.",
+      "ready": "This step is ready. The “{{action}}” button is now available.",
       "followStep": "Follow the current step below. The assistant may need your answer or confirmation.",
       "steps": {
         "intro": "Project introduction",
@@ -3313,6 +3314,12 @@
     },
     "recoverEnvironment": "Restore learning environment",
     "retryOpening": "Retry step opening",
+    "completion": {
+      "title": "Parabéns, você concluiu o projeto!",
+      "description": "Relembre suas decisões e veja o que você criou no relatório de aprendizagem.",
+      "openReport": "Ver relatório de aprendizagem",
+      "stay": "Continuar na área de trabalho"
+    },
     "reportCopy": {
       "waitFinal": "Wait for the final teaching response to finish before preparing the report.",
       "generating": "Preparing your project report…",
@@ -3449,6 +3456,7 @@
     },
     "decisionResponse": "Your decision",
     "decisionRationale": "Why did you choose this?",
+    "decisionRationaleInput": "Why did you choose this?",
     "submitDecision": "Submit decision",
     "decisionSaved": "Response saved",
     "decisionUnsaved": "Unsaved changes",

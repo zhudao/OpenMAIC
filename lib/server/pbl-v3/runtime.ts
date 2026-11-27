@@ -1269,7 +1269,9 @@ export async function learningView(
   const canonicalPending =
     !!pendingReview &&
     (('displayText' in pendingReview && !!pendingReview.displayText) ||
-      ('kind' in pendingReview && pendingReview.kind === 'support'));
+      ('kind' in pendingReview &&
+        pendingReview.kind === 'support' &&
+        pendingReview.spokenAt === undefined));
   if (pendingReview?.runId === `${stageKey(row)}:${latestUserSeq ?? 0}` && !currentQuestionShown) {
     messages.push({
       role: 'assistant',
@@ -1483,9 +1485,11 @@ export async function learningView(
               id: d.id,
               prompt: d.decisionPrompt,
               ...(d.responseType === undefined ? {} : { responseType: d.responseType }),
+              ...(d.responseLabel && { responseLabel: d.responseLabel }),
               ...(d.requiresRationale === undefined
                 ? {}
                 : { requiresRationale: d.requiresRationale }),
+              ...(d.rationaleLabel && { rationaleLabel: d.rationaleLabel }),
               options: d.options.map((o) => ({ id: o.id, label: o.label })),
             }))
         : [],

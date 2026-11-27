@@ -2103,7 +2103,7 @@
     "resetConfirmDescription": "Việc này sẽ bỏ mọi model tùy chỉnh và đưa về danh sách model mặc định. Khóa API và địa chỉ gốc vẫn được giữ.",
     "resetToDefault": "Đặt lại mặc định",
     "saveModel": "Lưu",
-    "searxngServerOnlyNotice": "SearXNG phải được cấu hình trên máy chủ. Hãy đặt biến môi trường SEARXNG_BASE_URL (hoặc mục web-search trong server-providers.yml). Địa chỉ do phía người dùng gửi lên sẽ không được nhận.",
+    "searxngServerOnlyNotice": "Trong openmaic.yml, khai báo nhà cung cấp với preset: searxng và baseUrl, rồi gán ID của nhà cung cấp cho slots.webSearch.",
     "serverConfigured": "Máy chủ",
     "serverConfiguredNotice": "Nhà cung cấp này do máy chủ quản lý nên không sửa được ở đây.",
     "startRecording": "Bắt đầu ghi âm",
@@ -3170,6 +3170,7 @@
       "currentMilestone": "Giai đoạn hiện tại",
       "milestoneGoal": "Mục tiêu:",
       "milestoneResult": "Kết quả:",
+      "acceptedResponse": "Cảm ơn bạn, chúng ta đã làm rõ những điều cần thiết ở bước này.",
       "completionHandoff": "This step is complete.",
       "startConversation": "Your assistant will open this step when the learning environment is ready.",
       "latest": "Go to the latest message",
@@ -3178,7 +3179,7 @@
       "fullscreenUnavailable": "Fullscreen is unavailable. You can continue in the classroom layout.",
       "currentTask": "Current learning step",
       "collectResult": "Collect the execution result before continuing.",
-      "ready": "This step is ready. Choose “{{action}}” when you are ready to move on.",
+      "ready": "This step is ready. The “{{action}}” button is now available.",
       "followStep": "Follow the current step below. The assistant may need your answer or confirmation.",
       "steps": {
         "intro": "Project introduction",
@@ -3313,6 +3314,12 @@
     },
     "recoverEnvironment": "Restore learning environment",
     "retryOpening": "Retry step opening",
+    "completion": {
+      "title": "Chúc mừng bạn đã hoàn thành dự án!",
+      "description": "Xem lại những quyết định và sản phẩm của bạn trong báo cáo học tập.",
+      "openReport": "Xem báo cáo học tập",
+      "stay": "Ở lại không gian làm việc"
+    },
     "reportCopy": {
       "waitFinal": "Wait for the final teaching response to finish before preparing the report.",
       "generating": "Preparing your project report…",
@@ -3449,6 +3456,7 @@
     },
     "decisionResponse": "Your decision",
     "decisionRationale": "Why did you choose this?",
+    "decisionRationaleInput": "Why did you choose this?",
     "submitDecision": "Submit decision",
     "decisionSaved": "Response saved",
     "decisionUnsaved": "Unsaved changes",

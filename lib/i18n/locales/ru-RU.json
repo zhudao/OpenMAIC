@@ -2103,7 +2103,7 @@
     "resetConfirmDescription": "Это удалит все пользовательские модели и восстановит встроенный список. API-ключ и Base URL будут сохранены.",
     "resetToDefault": "Сбросить на стандартные",
     "saveModel": "Сохранить",
-    "searxngServerOnlyNotice": "SearXNG должен быть настроен на сервере. Установите переменную окружения SEARXNG_BASE_URL (или раздел web-search в server-providers.yml). URL экземпляра от клиента не принимаются.",
+    "searxngServerOnlyNotice": "В openmaic.yml объявите провайдера с preset: searxng и его baseUrl, затем укажите его ID в slots.webSearch.",
     "serverConfigured": "Сервер",
     "serverConfiguredNotice": "Этот провайдер управляется сервером и не редактируется здесь.",
     "startRecording": "Начать запись",
@@ -3170,6 +3170,7 @@
       "currentMilestone": "Текущий этап",
       "milestoneGoal": "Цель:",
       "milestoneResult": "Результат:",
+      "acceptedResponse": "Спасибо, мы прояснили всё, что нужно для этого шага.",
       "completionHandoff": "This step is complete.",
       "startConversation": "Your assistant will open this step when the learning environment is ready.",
       "latest": "Go to the latest message",
@@ -3178,7 +3179,7 @@
       "fullscreenUnavailable": "Fullscreen is unavailable. You can continue in the classroom layout.",
       "currentTask": "Current learning step",
       "collectResult": "Collect the execution result before continuing.",
-      "ready": "This step is ready. Choose “{{action}}” when you are ready to move on.",
+      "ready": "This step is ready. The “{{action}}” button is now available.",
       "followStep": "Follow the current step below. The assistant may need your answer or confirmation.",
       "steps": {
         "intro": "Project introduction",
@@ -3313,6 +3314,12 @@
     },
     "recoverEnvironment": "Restore learning environment",
     "retryOpening": "Retry step opening",
+    "completion": {
+      "title": "Поздравляем с завершением проекта!",
+      "description": "В отчёте об обучении можно посмотреть, какие решения вы приняли и что создали.",
+      "openReport": "Открыть отчёт об обучении",
+      "stay": "Остаться в рабочей области"
+    },
     "reportCopy": {
       "waitFinal": "Wait for the final teaching response to finish before preparing the report.",
       "generating": "Preparing your project report…",
@@ -3449,6 +3456,7 @@
     },
     "decisionResponse": "Your decision",
     "decisionRationale": "Why did you choose this?",
+    "decisionRationaleInput": "Why did you choose this?",
     "submitDecision": "Submit decision",
     "decisionSaved": "Response saved",
     "decisionUnsaved": "Unsaved changes",
